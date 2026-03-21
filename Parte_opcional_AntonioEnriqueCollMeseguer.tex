@@ -1,0 +1,612 @@
+\documentclass[12pt,a4paper]{article}
+
+% ==== Codificación y soporte Unicode ====
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% ==== Idioma ====
+\usepackage[spanish, es-noquoting, es-tabla]{babel}
+
+% ==== Matemáticas ====
+\usepackage{amsmath, amssymb}
+
+% ==== Figuras, tablas y gráficos ====
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{siunitx}
+\usepackage{enumitem}
+
+% ==== Gestión de márgenes y formato ====
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{setspace}
+\onehalfspacing
+\setlength{\parskip}{0.5em}
+
+% ==== Encabezados ====
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\setlength{\headheight}{28pt}
+\fancyhf{}
+\lhead{UNIVERSIDAD DE MURCIA}
+\rhead{Práctica de Modelado Molecular (opcional)}
+\cfoot{\thepage}
+
+% ==== Código / comandos ====
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{fvextra}
+\lstdefinestyle{bashstyle}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\bfseries\color{blue!70!black},
+  commentstyle=\itshape\color{green!40!black},
+  stringstyle=\color{red!60!black},
+  showstringspaces=false,
+  frame=single,
+  rulecolor=\color{black!20},
+  backgroundcolor=\color{black!3},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,         % respeta espacios en blanco
+  numbers=left,            % (opcional) numera líneas
+  numberstyle=\tiny\color{black!50},
+  stepnumber=1,
+  numbersep=6pt,
+}
+\lstset{
+  style=bashstyle,
+  literate=
+    {á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+    {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+    {ñ}{{\~n}}1 {Ñ}{{\~N}}1
+}
+
+% ==== Hyperref SIEMPRE AL FINAL ====
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue,
+  citecolor=blue,
+  pdfauthor={Antonio Enrique Coll Meseguer},
+  pdftitle={Práctica de Modelado Molecular (opcional)},
+  pdfencoding=auto,
+  psdextra
+}
+
+% ==== Documento ====
+\begin{document}
+
+% ==== Portada ====
+\begin{titlepage}
+\centering
+
+% --- Encabezado institucional ---
+{\fontsize{20}{22}\selectfont \textbf{UNIVERSIDAD DE MURCIA}}\\[4pt]
+{\Large FACULTAD DE BIOLOGÍA}\\[2pt]
+{\large MÁSTER DE BIOINFORMÁTICA}\\[0.8cm]
+
+% --- LOGO o IMAGEN ---
+\includegraphics[width=0.80\textwidth]{img/SelloUMU-positivo.png}\\[1 cm]
+
+% --- Título principal ---
+{\fontsize{26}{30}\selectfont \textbf{Práctica de Modelado Molecular (opcional)}}\\[10pt]
+{\Large Tripéptido ARN (ACE--Ala--Arg--Asn--NME)}\\[1.5cm]
+
+% --- Datos del informe ---
+\begin{tabular}{rl}
+\textbf{Asignatura:} & Modelado Molecular \\
+\textbf{Fecha:} & 22 de marzo de 2026 \\
+\textbf{Autor:} & Antonio Enrique Coll Meseguer \\
+\textbf{Curso:} & 2025/2026 \\
+\end{tabular}
+
+\vfill
+\end{titlepage}
+
+% ==== Resumen ====
+\begin{abstract}
+\textbf{Resumen}. Este documento corresponde a la \textbf{Parte opcional (Extended Report)} de la práctica de Modelado Molecular. Se amplía el análisis del tripéptido ARN (ACE--Ala--Arg--Asn--NME) mediante una simulación extendida de \SI{500}{ps} a \SI{298}{K}, con salida cada \SI{10}{fs}. 
+
+Se abordan los requisitos específicos de esta parte opcional: 
+(i) generación de histogramas de la temperatura y de las tres componentes de la velocidad de un átomo seleccionado; 
+(ii) cálculo y representación de los mapas de Ramachandran para los tres residuos del péptido; 
+(iii) identificación y cuantificación de las conformaciones predominantes (\texorpdfstring{$\alpha_R$}{alphaR}, \texorpdfstring{$\beta$}{beta}, PPII). 
+
+Se describen los comandos utilizados, los criterios metodológicos y se presentan resultados validados y organizados para su interpretación.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Introducción}
+
+El estudio de péptidos cortos mediante dinámica molecular (MD) proporciona un marco sólido para comprender la exploración conformacional, la estabilidad estructural y las fluctuaciones energéticas de sistemas biomoleculares. En este contexto, el tripéptido ARN (ACE--Ala--Arg--Asn--NME) constituye un modelo idóneo para analizar la relación entre la identidad del residuo y la ocupación de regiones específicas del mapa de Ramachandran, así como para evaluar la respuesta del sistema frente a condiciones termodinámicas controladas.
+
+La \textit{Parte opcional} o \textit{Extended Report} de esta práctica amplía el estudio estándar realizando una simulación de producción en ensamble NVT de \SI{500}{ps} a \SI{298}{K}, con muestreo de datos cada \SI{10}{fs}. Esta elevada frecuencia de muestreo permite caracterizar con precisión (i) la distribución temporal de la temperatura, (ii) la dinámica de las velocidades atómicas y (iii) la exploración del espacio conformacional \textit{phi--psi} para cada residuo del tripéptido.
+
+Este informe documenta de manera exhaustiva el flujo de trabajo seguido, los comandos utilizados, el razonamiento detrás de las decisiones metodológicas y los resultados obtenidos. El análisis incluye histogramas normalizados, mapas de Ramachandran con resolución uniforme y la clasificación cuantitativa de las conformaciones predominantes en términos de poblaciones alfa, beta y PPII.
+
+\subsubsection*{Repositorio del proyecto}
+El código fuente utilizado en el postprocesado (scripts de Python), así como todas
+las figuras generadas, los notebooks, los archivos auxiliares y la estructura del
+proyecto completo, están disponibles públicamente en GitHub:
+\url{https://github.com/antonioenriquecoll-design/modelo-molecular-ARN}.
+
+\section{Objetivos}
+
+El objetivo de esta parte opcional es profundizar en el comportamiento dinámico y conformacional del tripéptido ARN en condiciones controladas de temperatura mediante una simulación extendida. Los objetivos específicos son:
+
+\begin{enumerate}
+    \item Realizar una simulación NVT de \SI{500}{ps} a \SI{298}{K} con una frecuencia de muestreo de \SI{10}{fs}, siguiendo las directrices del fichero \texttt{runNVT.mdp}.
+    
+    \item Extraer la serie temporal de temperatura del fichero de energías y representar su distribución mediante un histograma normalizado, identificando la media, la desviación estándar y el comportamiento térmico global del sistema.
+    
+    \item Seleccionar un átomo concreto del péptido y analizar la distribución de sus tres componentes de velocidad mediante histogramas de densidad en unidades de \textit{nm ps\textsuperscript{-1}} y su conversión a \textit{m s\textsuperscript{-1}}.
+    
+    \item Generar los mapas de Ramachandran para los tres residuos (Ala, Arg, Asn), representados como densidades bidimensionales \textit{(phi, psi)} con escala uniforme y contornos interpretables.
+    
+    \item Clasificar los estados conformacionales de cada residuo en las regiones canónicas: alfa derecha, beta extendida y hélice PPII, cuantificando sus poblaciones relativas.
+    
+    \item Integrar todos los resultados en un informe coherente, reproducible y visualmente homogéneo que cumpla los criterios del Extended Report de la práctica.
+\end{enumerate}
+
+% ======================================================
+% Extended report (298 K, 500 ps, muestreo cada 10 fs)
+% ======================================================
+\section{Extended report a \texorpdfstring{\SI{298}{K}}{298 K} (500 ps, muestreo cada 10 fs)}
+\label{sec:extended-298K}
+
+\noindent
+En este apartado se documenta, de forma rigurosa y reproducible, la simulación extendida a \SI{298}{K} durante \SI{500}{ps} con volcado de resultados cada \SI{10}{fs}, así como los análisis solicitados: histograma de temperatura, histogramas de las tres componentes de la velocidad de un átomo seleccionado, y mapas de Ramachandran \texorpdfstring{$(\phi,\psi)$}{(phi,psi)} por residuo con identificación de las conformaciones de mayor probabilidad (\texorpdfstring{$\alpha_R$}{alphaR}, \texorpdfstring{$\beta$}{beta}, PPII).
+
+% -------------------------------
+\subsection{Preparación del directorio y archivos}
+Se creó un directorio específico para el reporte extendido y se copiaron los ficheros necesarios desde la ejecución a \SI{298}{K}:
+
+\begin{lstlisting}[style=bashstyle,texcl=false]
+# Crear directorio del reporte extendido
+mkdir extended_298K                  # Crea la carpeta de trabajo
+cd extended_298K                     # Entra en la carpeta
+
+# Copiar archivos necesarios (desde la producción a 298 K)
+cp ../298K/run/arn.top .             # .top = topología (moléculas, parámetros)
+cp ../298K/run/arn_eq_298.gro .      # .gro = coordenadas/estructura a 298 K
+cp ../298K/run/runNVT.mdp .          # .mdp = parámetros de simulación
+cp ../298K/run/submit_eck.sh .       # Script de envío al clúster
+\end{lstlisting}
+
+% -------------------------------
+\subsection{Parámetros de dinámica molecular (\texttt{runNVT.mdp})}
+Se empleó un fichero de control \texttt{runNVT.mdp} con \SI{500}{ps} de duración, paso temporal \SI{0.5}{fs} y frecuencia de volcado de \SI{10}{fs} para coordenadas, velocidades, log y energías. Termostato \texttt{v-rescale} en ensamble NVT:
+
+\begin{Verbatim}[fontsize=\footnotesize,frame=single]
+; runNVT.mdp (Extended 500 ps @ 298 K, outputs cada 10 fs)
+
+; RUN CONTROL PARAMETERS
+integrator               = md
+dt                       = 0.0005     ; 0.5 fs
+nsteps                   = 1000000    ; 500 ps
+define                   = -DFLEXIBLE -DCHARMM_TIP3P
+constraints              = none
+comm-mode                = Linear
+nstcomm                  = 1000
+
+; OUTPUT CONTROL OPTIONS
+nstxout                  = 20         ; coords cada 10 fs
+nstvout                  = 20         ; velocidades cada 10 fs
+nstfout                  = 0          ; no guardar fuerzas (ahorra espacio)
+nstlog                   = 20         ; log cada 10 fs
+nstenergy                = 20         ; energias cada 10 fs
+nstcalcenergy            = 1000       ; (Nota grompp: se iguala a 20 en ejecución)
+
+; NEIGHBOR SEARCH / CUTOFFS
+nstlist                  = 10
+ns-type                  = Grid
+pbc                      = xyz
+rlist                    = 1.1
+cutoff-scheme            = Verlet
+
+; ELECTROSTATIC & VDW
+coulombtype              = PME
+rcoulomb                 = 1.1
+fourierspacing           = 0.12
+vdwtype                  = Cut-off
+vdw_modifier             = Potential-switch
+rvdw_switch              = 0.9
+rvdw                     = 1.1
+DispCorr                 = EnerPres
+
+; TEMPERATURE COUPLING
+Tcoupl                   = v-rescale
+ld_seed                  = 87654321
+tc-grps                  = System
+tau_t                    = 0.1
+ref_t                    = 298
+
+; VELOCIDADES
+gen_vel                  = no         ; continuidad física
+\end{Verbatim}
+
+\paragraph{Nota técnica.} \texttt{grompp} informa: \emph{``Setting nstcalcenergy (1000) equal to nstenergy (20)''}. En la práctica, \texttt{mdrun} iguala ambos parámetros, por lo que la recomendación final (para versiones recientes) es fijar explícitamente \texttt{nstcalcenergy = 20} para evitar la nota.
+
+% -------------------------------
+\subsection{Script de envío y generación del \texttt{.tpr}}
+La ejecución se automatizó vía SLURM:
+
+\begin{lstlisting}[style=bashstyle]
+cat submit_eck.sh
+#!/bin/bash
+#SBATCH -p eck-q                   # Partición/cola de SLURM
+#SBATCH --chdir=/home/alumno05/ARN_project/298K/extended_298K
+#SBATCH -J ext_298                 # Nombre del job
+#SBATCH --cpus-per-task=1          # Número de hilos (-nt)
+
+# Preparar TPR de la corrida extendida
+gmx grompp -f runNVT.mdp -c arn_eq_298.gro -p arn.top -o arn_ext.tpr
+# grompp: -f .mdp (parámetros) -c .gro (coords) -p .top (topología) -> -o .tpr (entrada de mdrun)
+
+date                                # Marca temporal (inicio)
+gmx mdrun -deffnm arn_ext -c arn_ext.g96 -nt 1
+# mdrun: -deffnm prefix -> arn_ext.trr/edr/log ... -c estructura final (.g96)   -nt números de hilos
+date                                # Marca temporal (fin)
+\end{lstlisting}
+
+\noindent
+La preparación del \texttt{.tpr} y el \texttt{mdrun} se realizaron sin incidencias. \texttt{grompp} estimó un volumen de datos de \(\sim\)3.2~GB (sin fuerzas), muy inferior al valor docente de referencia (\(\sim\)30~GB) debido a la supresión de fuerzas (\texttt{nstfout=0}) y al formato de salida empleado.
+
+% -------------------------------
+\subsection{Productos de la producción}
+La simulación generó los ficheros estándar:
+\begin{itemize}[leftmargin=1.4em]
+  \item \texttt{arn\_ext.tpr} (parámetros y topología de ejecución),
+  \item \texttt{arn\_ext.trr} (trayectoria con coordenadas y velocidades cada \SI{10}{fs}),
+  \item \texttt{arn\_ext.edr} (energías y temperatura cada \SI{10}{fs}),
+  \item \texttt{arn\_ext.log} (registro de ejecución),
+  \item \texttt{arn\_ext.g96} (estructura final).
+\end{itemize}
+
+% ======================================================
+\section{Análisis 1: Temperatura \texorpdfstring{$T$}{T} (histograma)}
+
+La serie temporal de temperatura se extrajo a partir del fichero binario \texttt{arn\_ext.edr} utilizando la herramienta \texttt{gmx energy}, seleccionando el término \texttt{Temperature} (entrada \texttt{17} del menú):
+
+\begin{lstlisting}[style=bashstyle,texcl=false]
+gmx energy -f arn_ext.edr -o temp_ext.xvg        
+# -f .edr (energías) -> -o .xvg (serie)
+# Seleccionar: 17 (Temperature)                   
+# Tip: -xvg none (si quieres salida sin cabeceras xmgrace)
+\end{lstlisting}
+
+GROMACS generó el fichero \texttt{temp\_ext.xvg}, que contiene la evolución de \(T(t)\) durante los \SI{500}{ps} de simulación (50\,001 frames, muestreo cada \SI{10}{fs}). El propio programa proporciona los estadísticos agregados:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Magnitud} & \textbf{Media (K)} & \textbf{Desviación estándar (K)} & \textbf{Rango (K)} \\
+\midrule
+Temperatura & 297.92 & 4.75 & [279.20,\; 320.53] \\
+\bottomrule
+\end{tabular}
+\caption{Estadísticos de la temperatura instantánea durante la simulación extendida a 298~K (N~=~50001 muestras).}
+\label{tab:tempstats298}
+\end{table}
+
+\noindent
+La Figura~\ref{fig:temp-histo} muestra la distribución de la temperatura instantánea obtenida durante los 500~ps de simulación en régimen NVT a \SI{298}{K}, con un muestreo de \SI{10}{fs}. El análisis estadístico correspondiente se resume en la Tabla~\ref{tab:tempstats298}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\textwidth]{img/hist_T_298K_500ps.png}
+  \caption{\textbf{Distribución de la temperatura} instantánea durante la simulación extendida en ensamble NVT a \SI{298}{K}. El histograma se representa como densidad (PDF). La línea discontinua marca la media \texorpdfstring{$\overline{T}$}{Tmedia} y la banda gris indica \texorpdfstring{$\pm\sigma$}{pm-sigma}.}
+  \label{fig:temp-histo}
+\end{figure}
+
+\paragraph{Comportamiento general.}
+El histograma presenta una distribución aproximadamente gaussiana centrada en torno a 298~K, con una concentración máxima de probabilidad alrededor de la media (297.92~K). La superposición con el ajuste de densidad (KDE) confirma la simetría y la suavidad de la distribución, características del muestreo adecuado del ensamble canónico en presencia del termostato \texttt{v-rescale}.
+
+\paragraph{Fluctuaciones térmicas.}
+La desviación estándar $\sigma = 4.75$~K define un intervalo térmico relativamente estrecho, lo cual encaja con lo esperado para un sistema de unas pocas miles de partículas. La banda sombreada de $\pm\sigma$ en torno a la media abarca la mayor parte del histograma, mientras que las colas a ambos lados decaen suavemente sin mostrar anomalías numéricas ni excursiones térmicas no físicas. El rango total observado, entre 279.20~K y 320.53~K, es compatible con las fluctuaciones estadísticas que se derivan del teorema de equipartición en un ensamble NVT.
+
+% ======================================================
+\section{Análisis 2: Velocidades atómicas \texorpdfstring{$(v_x, v_y, v_z)$}{(vx, vy, vz)}}
+Para un átomo representativo (ej., CA de ALA, átomo índice 9) se creó un grupo \texttt{atom\_sel} y se extrajeron las velocidades con \texttt{gmx traj}:
+
+\begin{lstlisting}[style=bashstyle,texcl=false]
+# Crear un grupo con un átomo concreto (p.ej., índice 9)
+gmx make_ndx -f arn_ext.tpr -o atom.ndx          # -f .tpr (referencia) -> -o .ndx (grupos)
+# En el prompt:
+# > a 9                                          # Selecciona el átomo con índice 9
+# > name 18 atom_sel                             # Renombra el grupo 18 como 'atom_sel'
+#                                                # (el número 18 corresponde al grupo recién creado)
+# > q                                            # Guarda los cambios y sale
+
+# Extraer velocidades del grupo 'atom_sel'
+gmx traj -f arn_ext.trr -s arn_ext.tpr -n atom.ndx -ov vel_atom.xvg -xvg none
+# traj: -f .trr (trayectoria) -s .tpr (masas/topo) -n .ndx (grupo)
+#       -ov (output velocities) -> .xvg,  -xvg none (sin cabeceras)
+
+# Formato (observado):
+# t  vx  vy  vz    (4 columnas numéricas por línea)
+head -n 5 vel_atom.xvg                             # Inspección rápida de la salida
+# 0      0.0792579       0.22189  -0.491585
+# 0.01  -0.0883425      -0.840496 -0.0245788
+\end{lstlisting}
+
+\noindent\textbf{Formato observado del fichero \texttt{vel\_atom.xvg}.}
+La inspección mediante el comando:
+
+\begin{verbatim}
+head -n 5 vel_atom.xvg
+\end{verbatim}
+
+Muestra que el fichero contiene cuatro columnas: tiempo $t$ (ps) y las tres
+componentes de la velocidad $(v_x, v_y, v_z)$ en unidades de nm\,ps$^{-1}$. Las
+primeras líneas reales son:
+
+\begin{verbatim}
+0       0.0792579       0.22189        -0.491585
+0.01   -0.0883425      -0.840496       -0.0245788
+\end{verbatim}
+
+El átomo seleccionado para el análisis cinético es el átomo \textbf{9}, que corresponde al \textbf{carbono alfa (CA) del residuo ALA-2}, según se identifica en el fichero de coordenadas \texttt{arn\_eq\_298.gro}. En la topología, este átomo forma parte del esqueleto principal del péptido (backbone) y es un centro químico adecuado para estudiar la distribución de velocidades debido a su masa intermedia y a su posición estructuralmente representativa.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llll}
+\toprule
+\textbf{Índice} & \textbf{Residuo} & \textbf{Átomo} & \textbf{Comentario} \\
+\midrule
+9   & ALA-2 & CA   & Carbono alfa (átomo seleccionado) \\
+7   & ALA-2 & N    & Vecino covalente anterior del CA \\
+15  & ALA-2 & C    & Vecino covalente posterior del CA \\
+10  & ALA-2 & HA   & Hidrógeno enlazado al CA \\
+17  & ARG-3 & N    & Átomo del residuo siguiente (no covalente directo) \\
+18  & ARG-3 & HN   & Hidrógeno enlazado al N de ARG-3 \\
+\bottomrule
+\end{tabular}
+\caption{Identificación estructural del átomo 9 (CA de ALA-2) y sus vecinos en el fichero \texttt{arn\_eq\_298.gro}.}
+\label{tab:atom9}
+\end{table}
+
+\noindent
+A partir de \texttt{vel\_atom.xvg} se construyeron los histogramas de \(v_x, v_y, v_z\) (PDF), anotando media y \(\pm\sigma\). Resultados (N=\num{50001} por componente):
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Componente} & \textbf{Media (nm\,ps$^{-1}$)} & \textbf{Media (m\,s$^{-1}$)} & \textbf{$\sigma$ (nm\,ps$^{-1}$)} \\
+\midrule
+$v_x$ & -0.001 & -0.9  & 0.459 \\
+$v_y$ & -0.002 & -1.7  & 0.456 \\
+$v_z$ &  \,0.001 &  1.1 & 0.461 \\
+\bottomrule
+\end{tabular}
+\caption{Estadísticos de las componentes de la velocidad durante la simulación extendida a 298~K (N~=~50001 muestras por componente).}
+\label{tab:velstats298}
+\end{table}
+
+La Figura~\ref{fig:hist-vel-298} muestra los histogramas normalizados de las tres componentes de la velocidad ($v_x$, $v_y$ y $v_z$) para un átomo seleccionado del péptido durante la simulación extendida de 500~ps en ensamble NVT a \SI{298}{K}, con muestreo cada \SI{10}{fs}. Los valores estadísticos asociados se resumen en la Tabla~\ref{tab:velstats298}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\textwidth]{img/hist_v_components_298K_500ps.png}
+  \caption{\textbf{Distribución de las componentes de la velocidad} \texorpdfstring{$(v_x,v_y,v_z)$}{(vx, vy, vz)} del átomo seleccionado (NVT, \SI{298}{K}, \SI{500}{ps}). Histogramas como densidad (PDF) en \(\mathrm{nm\,ps^{-1}}\), con eje secundario superior en \(\mathrm{m\,s^{-1}}\) \(\bigl(1~\mathrm{nm\,ps^{-1}} = 10^{3}~\mathrm{m\,s^{-1}}\bigr)\). Líneas discontinuas: medias; bandas: \(\pm\sigma\).}
+  \label{fig:hist-vel-298}
+\end{figure}
+
+\paragraph{Simetría y ausencia de cambios.}
+En los tres histogramas se observa una distribución prácticamente simétrica alrededor de cero, con medias muy próximas a $0$~nm\,ps$^{-1}$ y valores absolutos inferiores a $2 \times 10^{-3}$~nm\,ps$^{-1}$. Esta simetría indica que no aparece ningún cambio neto en el momento lineal, coherente con la eliminación periódica del movimiento del centro de masas configurada en el archivo \texttt{mdp} (\texttt{comm-mode = Linear}). La coincidencia entre las tres medias confirma que el muestreo es equilibrado en las tres direcciones espaciales.
+
+\paragraph{Fluctuaciones térmicas y forma gaussiana.}
+Las desviaciones estándar de las componentes ($\sigma \approx 0.46$~nm\,ps$^{-1}$, equivalentes a $\sim$460~m\,s$^{-1}$) coinciden entre sí dentro de la precisión estadística, lo que refleja isotropía térmica y un muestreo adecuado del conjunto de velocidades Maxwell--Boltzmann. La forma de campana de cada histograma, junto con la superposición de la banda sombreada correspondiente a $1\sigma$, confirma que el sistema sigue una distribución normal unidimensional para cada componente, tal como predice la teoría cinética en condiciones de equilibrio.
+
+\paragraph{Relación con el ensamble canónico.}
+La similitud entre las desviaciones estándar de $v_x$, $v_y$ y $v_z$, así como la ausencia de colas anómalas o asimetrías marcadas, demuestra estabilidad numérica y un control térmico adecuado por parte del termostato \texttt{v-rescale}. El comportamiento observado es coherente con la relación
+\[
+\frac{1}{2} m \langle v_i^2 \rangle = \frac{1}{2} k_{\mathrm{B}} T,
+\]
+cumpliéndose la proporcionalidad entre la temperatura simulada (298~K) y la anchura de las distribuciones de velocidad. Los resultados indican que la dinámica molecular muestrea correctamente el ensamble NVT y que el átomo seleccionado representa fielmente el comportamiento cinético del sistema.
+% ======================================================
+\section{Análisis 3: Ramachandran por residuo y poblaciones
+\texorpdfstring{$\alpha_R$}{alphaR}, \texorpdfstring{$\beta$}{beta}, PPII}
+Los ángulos \(\phi\) y \(\psi\) se obtuvieron con \texttt{gmx rama} para todos los residuos (opción \texttt{-xvg none}):
+
+\begin{lstlisting}[style=bashstyle,texcl=false]
+gmx rama -s arn_ext.tpr -f arn_ext.trr -o rama_all.xvg -xvg none
+# rama: -s .tpr (referencia) -f .trr (trayectoria) -> -o .xvg (phi/psi)
+# -xvg none: salida limpia para procesar con grep/awk
+# Salida con etiquetas del tipo: ALA-2  phi  psi; ARG-3  phi  psi; ASN-4  phi  psi
+\end{lstlisting}
+
+\subsection*{Análisis de los mapas de Ramachandran (500 ps, 298 K)}
+
+\noindent
+Se generaron mapas \texorpdfstring{$(\phi,\psi)$}{(phi,psi)} (aspecto 1:1, ejes en grados) y se clasificaron las poblaciones en ventanas operativas para péptidos en solución:
+\[
+\begin{aligned}
+\alpha_R &: \phi \in (-100,-30),\;\psi \in (-80,10),\\
+\beta &: \phi \in (-180,-90),\;\psi \in (90,180],\\
+\mathrm{PPII} &: \phi \in (-100,-30),\;\psi \in (120,180].
+\end{aligned}
+\]
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.80\textwidth]{img/rama_ALA2.png}
+  \caption{\textbf{Mapa de Ramachandran} de ALA-2 a \SI{298}{K}. 
+  Representación como densidad de probabilidad en el espacio 
+  \texorpdfstring{$(\phi,\psi)$}{(phi,psi)}.}
+  \label{fig:rama-ala2}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.80\textwidth]{img/rama_ARG3.png}
+  \caption{\textbf{Mapa de Ramachandran} de ARG-3 a \SI{298}{K}. 
+  Representación como densidad de probabilidad en el espacio 
+  \texorpdfstring{$(\phi,\psi)$}{(phi,psi)}.}
+  \label{fig:rama-arg3}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.90\textwidth]{img/rama_ASN4.png}
+  \caption{\textbf{Mapa de Ramachandran} de ASN-4 a \SI{298}{K}. 
+  Representación como densidad de probabilidad en el espacio 
+  \texorpdfstring{$(\phi,\psi)$}{(phi,psi)}.}
+  \label{fig:rama-asn4}
+\end{figure}
+
+En la Figura~\ref{fig:rama-ala2}, Figura~\ref{fig:rama-arg3} y Figura~\ref{fig:rama-asn4} se muestran los mapas de Ramachandran obtenidos para los tres residuos internos del tripéptido (ALA-2, ARG-3 y ASN-4) durante la simulación extendida de 500~ps a 298~K, con muestreo cada 10~fs. Las poblaciones conformacionales correspondientes a las regiones $\alpha_\mathrm{R}$, $\beta$, PPII y ``other'' se resumen en la Tabla~\ref{tab:ramapops}.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Residuo} & \boldmath{$\alpha_{\mathrm{R}}$} & \textbf{$\beta$} & \textbf{PPII} & \textbf{other} \\
+\midrule
+ALA-2 & 72.1\% & 0.0\% & 0.0\% & 27.9\% \\
+ARG-3 & 0.0\% & 75.5\% & 22.7\% & 1.8\% \\
+ASN-4 & 34.4\% & 21.9\% & 18.5\% & 25.2\% \\
+\bottomrule
+\end{tabular}
+\caption{Población relativa de conformaciones según regiones del mapa de Ramachandran.}
+\label{tab:ramapops}
+\end{table}
+
+\paragraph{ALA-2: Dominio claro en la región $\alpha_{\mathrm{R}}$.}
+El mapa de Ramachandran de ALA-2 (Figura~\ref{fig:rama-ala2}) muestra una población muy concentrada en la región de hélice derecha ($\alpha_{\mathrm{R}}$), centrada alrededor de $\phi \approx -60^\circ$ y $\psi \approx -45^\circ$, formando un núcleo compacto de densidad. Esto se refleja en el 72.1\% de ocupación en $\alpha_{\mathrm{R}}$, característica de residuos con poca impedancia estérica como la alanina, que favorece conformaciones helicoidales incluso en péptidos muy cortos. La ausencia total de estados $\beta$ o PPII confirma un comportamiento estructural definido.
+
+\paragraph{ARG-3: Estabilización marcada en la región $\beta$.}
+El residuo ARG-3 (Figura~\ref{fig:rama-arg3}) presenta un patrón completamente distinto: la densidad se agrupa de forma compacta en la región $\beta$, con $\phi \approx -120^\circ$ y $\psi$ entre $130^\circ$ y $160^\circ$. El 75.5\% de ocupación en esta región indica una fuerte preferencia por conformaciones extendidas, favorecidas por la cadena lateral larga y cargada de la arginina, que tiende a estabilizar orientaciones más abiertas del esqueleto peptídico. El 22.7\% en PPII, adyacente a la región $\beta$, es coherente con la tendencia de residuos voluminosos o cargados a explorar configuraciones extendidas, especialmente en solución acuosa. La ausencia de población $\alpha_{\mathrm{R}}$ subraya una incompatibilidad geométrica de ARG con estados helicoidales estrechos.
+
+\paragraph{ASN-4: Comportamiento distribuido y flexible.}
+El residuo ASN-4 (Figura~\ref{fig:rama-asn4}) muestra el comportamiento más complejo y repartido del tripéptido. Se distinguen dos zonas claramente pobladas:: una en la región $\alpha_{\mathrm{R}}$ (34.4\%) y otra en la región $\beta$ (21.9\%). Adicionalmente, un 18.5\% ocupa la región PPII. Esta diversidad conformacional encaja con la presencia del grupo amida lateral de la asparagina, capaz de participar en interacciones transitorias con el solvente y el propio esqueleto, modificando localmente las barreras torsionales y permitiendo la exploración simultánea de estados helicoidales y extendidos. Las poblaciones similares entre regiones indican una flexibilidad torsional notable y la ausencia de una conformación predominante.
+
+\paragraph{Comparación global.}
+Los tres residuos presentan perfiles conformacionales fuertemente diferenciados:
+
+\begin{itemize}
+    \item \textbf{ALA-2} adopta casi exclusivamente conformaciones helicoidales, reflejando su baja impedancia estérica y su preferencia intrínseca por la región $\alpha_{\mathrm{R}}$.
+    \item \textbf{ARG-3} se estabiliza mayoritariamente en la región $\beta$, coherente con su cadena lateral larga y cargada, que favorece estados extendidos.
+    \item \textbf{ASN-4} muestra un equilibrio entre estados $\alpha_{\mathrm{R}}$, $\beta$ y PPII, evidenciando un comportamiento más flexible y polimórfico.
+\end{itemize}
+
+Estos resultados muestran cómo la identidad química de cada residuo modula de forma drástica su conformación, incluso dentro de un péptido tan corto como ARN.
+
+\subsubsection*{Extracción de \texorpdfstring{$(\phi,\psi)$}{(phi,psi)} por shell (método clásico)}
+\label{sec:phi-psi-shell}
+
+A partir de \texttt{rama\_all.xvg} (generado con \texttt{gmx rama -xvg none}), se separaron las columnas de \(\phi\) y \(\psi\) por residuo empleando \texttt{grep}, \texttt{awk}, \texttt{cat -n} y \texttt{join}. Para cada residuo:
+
+\begin{lstlisting}[style=bashstyle,texcl=false]
+# ALA-2
+grep ALA-2 rama_all.xvg | awk '{print $2}' | cat -n > phi-ala-2.dat   
+# Filtra ALA-2, saca phi (col 2), numera
+grep ALA-2 rama_all.xvg | awk '{print $3}' | cat -n > psi-ala-2.dat   
+# Filtra ALA-2, saca psi (col 3), numera
+join phi-ala-2.dat psi-ala-2.dat > ala-2.dat                          
+# Une por indice (1a col)
+
+# ARG-3
+grep ARG-3 rama_all.xvg | awk '{print $2}' | cat -n > phi-arg-3.dat   
+# Extrae phi para ARG-3
+grep ARG-3 rama_all.xvg | awk '{print $3}' | cat -n > psi-arg-3.dat   
+# Extrae psi para ARG-3
+join phi-arg-3.dat psi-arg-3.dat > arg-3.dat                          
+# Empareja (phi, psi)
+
+# ASN-4
+grep ASN-4 rama_all.xvg | awk '{print $2}' | cat -n > phi-asn-4.dat   
+# Extrae phi para ASN-4
+grep ASN-4 rama_all.xvg | awk '{print $3}' | cat -n > psi-asn-4.dat   
+# Extrae psi para ASN-4
+join phi-asn-4.dat psi-asn-4.dat > asn-4.dat                          
+# Empareja (phi, psi)
+# Nota: join requiere 1a columna comun y ordenada; cat -n crea esa clave.
+# Si aparecen etiquetas residuales, parsear los dos últimos números por línea (p. ej., con Python).
+\end{lstlisting}
+
+\noindent
+\textbf{Advertencia de formato.} En nuestro entorno (\texttt{gmx 2016.4}), esta receta puede introducir la etiqueta del residuo en alguna columna al hacer el \texttt{join} si el espaciado del \texttt{xvg} no es estrictamente uniforme. De hecho, obtuvimos líneas con texto, p.\,ej.:
+
+\begin{verbatim}
+head ala-2.dat
+1   15.7251   ALA-2
+2   18.3345   ALA-2
+3   18.4358   ALA-2
+4   12.0719   ALA-2
+...
+\end{verbatim}
+
+\begin{verbatim}
+head arg-3.dat
+1   153.942   ARG-3
+2   157.758   ARG-3
+3   153.302   ARG-3
+4   148.354   ARG-3
+...
+\end{verbatim}
+
+\begin{verbatim}
+head asn-4.dat
+1   -12.461    ASN-4
+2   -12.7314   ASN-4
+3   -11.4863   ASN-4
+4   -20.2648   ASN-4
+...
+\end{verbatim}
+
+\paragraph{Implicación práctica.}
+Aunque esta tercera columna no afecta negativamente a la interpretación visual de los mapas de Ramachandran, sí impide un tratamiento directo mediante herramientas que esperan únicamente datos numéricos. Por ello, los ficheros deben ser preprocesados para extraer exclusivamente los valores de las torsiones $\phi$ y $\psi$. En este trabajo se solucionó mediante un pequeño script en \texttt{Python} capaz de identificar los dos últimos valores numéricos de cada línea, ignorando las etiquetas residuales. Esta estrategia asegura una lectura correcta incluso cuando el formato del \texttt{xvg} no es uniforme, manteniendo la fiabilidad estadística del análisis posterior.
+
+% ======================================================
+\section{Reproducibilidad (resumen de comandos)}
+\begin{lstlisting}
+# 1) Preparación del TPR y ejecución extendida
+gmx grompp -f runNVT.mdp -c arn_eq_298.gro -p arn.top -o arn_ext.tpr
+# grompp: -f .mdp (params) -c .gro (coords) -p .top (topología) -> -o .tpr (entrada)
+gmx mdrun  -deffnm arn_ext -c arn_ext.g96 -nt 1
+# mdrun: -deffnm prefijo (genera .trr/.edr/.log/...)  -c estructura final  -nt hilos
+
+# 2) Temperatura
+gmx energy -f arn_ext.edr -o temp_ext.xvg    # -f .edr (energías) -> -o .xvg (serie)
+# elegir "Temperature"                         # Selección interactiva de magnitud
+
+# 3) Velocidades de un átomo
+gmx make_ndx -f arn_ext.tpr -o atom.ndx      # -f .tpr (referencia) -> -o .ndx (grupo)
+gmx traj -f arn_ext.trr -s arn_ext.tpr -n atom.ndx -ov vel_atom.xvg -xvg none
+# traj: -f .trr (trayectoria) -s .tpr (masas/topo) -n .ndx (grupo) -ov (velocidades)
+
+# 4) Ramachandran por residuo
+gmx rama -s arn_ext.tpr -f arn_ext.trr -o rama_all.xvg -xvg none     
+# phi/psi -> .xvg sin cabeceras
+# Posterior postprocesado y graficado por residuo (ALA-2, ARG-3, ASN-4)
+\end{lstlisting}
+
+% ======================================================
+\section{Conclusiones}
+
+La simulación extendida en ensamble NVT durante \SI{500}{ps} a \SI{298}{K}, con un muestreo de \SI{10}{fs}, ha permitido caracterizar con alta resolución la respuesta térmica, cinética y conformacional del tripéptido ARN. Los análisis realizados conducen a las siguientes conclusiones principales:
+
+\paragraph{Temperatura.}
+La distribución de la temperatura instantánea muestra un perfil unimodal, simétrico y claramente gaussiano, centrado en \(\overline{T}=297.92~\text{K}\) con \(\sigma=4.75~\text{K}\). Este comportamiento se ajusta a lo esperado para un ensamble NVT y confirma que el termostato \texttt{v-rescale} mantiene el sistema en equilibrio térmico sin variaciones apreciables. Las fluctuaciones observadas se ajustan al rango esperado para un sistema de tamaño comparable, lo que indica tanto una integración estable como un muestreo estadístico adecuado.
+
+\paragraph{Velocidades atómicas.}
+Las componentes de la velocidad del átomo seleccionado presentan distribuciones gaussianas centradas en cero, con desviaciones estándar prácticamente idénticas en las tres direcciones (\(\sigma \approx 0.46~\mathrm{nm\,ps^{-1}}\)). La simetría de los histogramas y la ausencia de desplazamientos sistemáticos indican que no existen cambios del momento total y que el sistema explora adecuadamente el conjunto Maxwell--Boltzmann en condiciones de equilibrio. La isotropía entre \(v_x\), \(v_y\) y \(v_z\) confirma un régimen térmico homogéneo y encaja con la teoría cinética.
+
+\paragraph{Conformaciones Ramachandran.}
+Los mapas \((\phi,\psi)\) revelan perfiles conformacionales marcadamente dependientes del residuo. ALA-2 muestra una fuerte preferencia (\(72.1\%\)) por la región \(\alpha_{\mathrm{R}}\), coherente con su baja impedancia estérica. ARG-3 se estabiliza mayoritariamente en la región \(\beta\) (\(75.5\%\)), favorecida por su cadena lateral larga y cargada, con contribuciones adicionales a PPII. ASN-4 presenta un patrón mixto, con poblaciones comparables en \(\alpha_{\mathrm{R}}\), \(\beta\) y PPII, reflejo de su flexibilidad torsional y la capacidad de su grupo amida para modular las barreras rotacionales. En conjunto, los resultados muestran que cada residuo modula de forma característica el paisaje conformacional del tripéptido.
+
+\paragraph{Conclusión global.}
+El conjunto de análisis confirma que el sistema se mantiene estable térmica, dinámica y estructuralmente durante toda la simulación extendida. Las distribuciones de temperatura y velocidades indican un muestreo adecuado y la ausencia de artefactos numéricos, mientras que los mapas de Ramachandran proporcionan una caracterización detallada acorde con las propensiones conformacionales esperadas para Ala, Arg y Asn.
+\end{document}
+

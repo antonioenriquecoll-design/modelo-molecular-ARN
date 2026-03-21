@@ -1,0 +1,1806 @@
+\documentclass[12pt,a4paper]{article}
+
+% ==== Paquetes básicos ====
+\usepackage[spanish,es-noquoting,es-tabla]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{listings}
+\usepackage{fvextra}      % mejora UTF-8 en listings y fija bugs internos
+\usepackage{xcolor}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage{microtype}
+\usepackage{siunitx}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{amsmath,amssymb}
+\usepackage{fancyhdr}
+\usepackage{float}
+\usepackage[section]{placeins}
+
+% ==== Configuración de página y tipografía ====
+\geometry{margin=2.5cm}
+\onehalfspacing
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue,
+  pdfauthor={Antonio Enrique Coll Meseguer},
+  pdftitle={Práctica de Modelado Molecular - Tripéptido Ala–Arg–Asn (ARN)},
+  pdfsubject={Dinámica Molecular a 298 K y 400 K con GROMACS},
+  pdfcreator={LaTeX}
+}
+\captionsetup{labelfont=bf}
+\titlespacing*{\section}{0pt}{*3}{*1}
+\titlespacing*{\subsection}{0pt}{*2}{*0.8}
+\titlespacing*{\subsubsection}{0pt}{*1.6}{*0.6}
+\setlength{\parskip}{0.5em}
+
+% ==== Encabezado/pie de página sencillo ====
+\pagestyle{fancy}
+\setlength{\headheight}{30pt}
+\fancyhf{}
+\lhead{UNIVERSIDAD DE MURCIA — FACULTAD DE BIOLOGÍA — MÁSTER DE BIOINFORMÁTICA}
+\rhead{Práctica de Modelado Molecular}
+\cfoot{\thepage}
+
+% ==== Listados de comandos/código ====
+\lstdefinestyle{bashstyle}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\bfseries\color{blue!70!black},
+  commentstyle=\itshape\color{green!40!black},
+  stringstyle=\color{red!60!black},
+  showstringspaces=false,
+  frame=single,
+  rulecolor=\color{black!20},
+  backgroundcolor=\color{black!3},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,         % respeta espacios en blanco
+  numbers=left,            % (opcional) numera líneas
+  numberstyle=\tiny\color{black!50},
+  stepnumber=1,
+  numbersep=6pt,
+}
+
+
+\lstset{
+    style=bashstyle,
+    texcl=false,         % ❗ NO enviar comentarios a LaTeX -> # y _ funcionan SIEMPRE
+    mathescape=false,    % ❗ evita modo matemático dentro del bash
+    inputencoding=utf8,  % UTF8 real
+    extendedchars=true,
+    upquote=true,        % comillas correctas
+    literate=%
+      {á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+      {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+      {ñ}{{\~n}}1 {Ñ}{{\~N}}1
+      {…}{{...}}1 {–}{{-}}1 {—}{{-}}1
+      {¡}{{!}}1 {¿}{{?}}1
+}
+
+% ==== Portada ====
+\begin{document}
+
+\begin{titlepage}
+\centering
+
+% --- Encabezado institucional ---
+{\fontsize{20}{22}\selectfont \textbf{UNIVERSIDAD DE MURCIA}}\\[4pt]
+{\Large FACULTAD DE BIOLOGÍA}\\[2pt]
+{\large MÁSTER DE BIOINFORMÁTICA}\\[0.8cm]
+
+% --- LOGO o IMAGEN ---
+\includegraphics[width=0.80\textwidth]{img/SelloUMU-positivo.png}\\[1 cm]
+
+% --- Título principal ---
+{\fontsize{26}{30}\selectfont \textbf{Práctica de Modelado Molecular}}\\[10pt]
+{\Large Tripéptido ARN (ACE–Ala–Arg–Asn–NME)}\\[1.5cm]
+
+% --- Datos del informe ---
+\begin{tabular}{rl}
+\textbf{Asignatura:} & Modelado Molecular \\
+\textbf{Fecha:} & 22 de marzo de 2026 \\
+\textbf{Autor:} & Antonio Enrique Coll Meseguer \\
+\textbf{Curso:} & 2025/2026 \\
+\end{tabular}
+
+\vfill
+\end{titlepage}
+
+\begin{abstract}
+\textbf{Resumen}. Se analiza el tripéptido ARN (ACE–Ala–Arg–Asn–NME) mediante dinámica molecular (MD) con GROMACS a \SI{298}{K} y \SI{400}{K}. El flujo de trabajo se divide en tres bloques exhaustivamente comentados: (i) \textit{EQUILIBRIO} (preparación, neutralización y equilibración NVT), (ii) \textit{RUN} (producción NVT con continuidad física) y (iii) \textit{ANÁLISIS} (Rg, distancias, ángulos, diedros, H-bonds, energía, temperatura, velocidades). Se explican todos los comandos usados, su significado y parámetros, y se proponen pies de figura para cada resultado.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% =============================
+% 1. Introducción
+% =============================
+\section{Introducción}
+Las simulaciones se llevaron a cabo utilizando \textbf{GROMACS} (\textit{GROningen MAchine for Chemical Simulations}), un paquete empleado para dinámica molecular biomolecular. Se empleó el campo de fuerza \textbf{CHARMM27}, disponible en \texttt{share/gromacs/top/charmm27.ff}, que proporciona parámetros validados para péptidos y proteínas.
+
+La dinámica molecular (MD) es una herramienta para estudiar biomoléculas, pues permite describir su evolución temporal a escala atómica integrando las ecuaciones de Newton. A diferencia de técnicas experimentales que proporcionan medidas promediadas, MD ofrece acceso directo a fluctuaciones conformacionales, estabilidad estructural, flexibilidad interna y efectos termodinámicos bajo condiciones controladas de temperatura y composición.
+
+En este trabajo se evalúa el comportamiento del tripéptido ARN (ACE-Ala-Arg-Asn-NME), un modelo sencillo que permite un muestreo computacional eficiente, pero que conserva elementos estructurales esenciales del esqueleto peptídico (enlaces covalentes, ángulos, torsiones y puentes de hidrógeno).
+
+En este contexto, se emplea MD para analizar cómo la temperatura modula la conformación, la estabilidad y la dinámica interna del tripéptido ARN en solución acuosa.
+
+\subsubsection*{Repositorio del proyecto}
+El código fuente utilizado en el postprocesado (scripts de Python), así como todas
+las figuras generadas, los notebooks, los archivos auxiliares y la estructura del
+proyecto completo, están disponibles públicamente en GitHub:
+\url{https://github.com/antonioenriquecoll-design/modelo-molecular-ARN}.
+
+% =============================
+% 2. Objetivos
+% =============================
+\section{Objetivos}
+El objetivo general de este trabajo es realizar y analizar simulaciones de dinámica molecular en ensamble NVT para el tripéptido ARN (ACE–Ala–Arg–Asn–NME) en disolución acuosa, siguiendo estrictamente los procedimientos desarrollados durante las sesiones prácticas de Modelado Molecular.
+
+De forma específica, se pretende:
+
+\begin{itemize}
+  \item Ejecutar simulaciones a \SI{298}{K} y \SI{400}{K} reproduciendo los pasos aplicados en clase: generación de la topología (ACE–R1–R2–R3–NME), definición de la caja, solvatación, neutralización, equilibración NVT y producción NVT.
+  
+  \item Representar y comentar la evolución temporal de las siguientes magnitudes:
+    \begin{itemize}
+      \item energía total y energía cinética,
+      \item temperatura instantánea del sistema,
+      \item dos distancias internas entre átomos contiguos del esqueleto,
+      \item dos ángulos internos,
+      \item dos diedros representativos del backbone,
+      \item radio de giro,
+      \item velocidades atómicas de cinco átomos seleccionados del péptido.
+    \end{itemize}
+
+  \item Comparar cuantitativamente los resultados obtenidos a ambas temperaturas y discutir su significado estructural, dinámico y termodinámico.
+
+  \item Evaluar la energía cinética media del sistema a \SI{298}{K} y \SI{400}{K} y contrastarla con el valor esperado según el teorema de equipartición.
+
+  \item Garantizar que las unidades, escalas, formatos gráficos y leyendas sigan el estilo propio de artículos científicos, y comentar de forma rigurosa tanto los comandos utilizados como la información mostrada en cada gráfica.
+
+\end{itemize}
+
+
+% =============================
+% 2. Preparación del sistema
+% =============================
+\section{Preparación del sistema}
+\label{sec:metodologia}
+
+\subsection{Preparación inicial y generación de la topología}
+\textbf{Contexto}. El proyecto se llevó a cabo en el directorio \texttt{~/ARN\_project}. Todos los pasos iniciales se realizan en la raíz del proyecto y, posteriormente, se crean las carpetas de 298 K y 400 K.
+
+\subsubsection*{Generación de la topología molecular (\texttt{gmx pdb2gmx})}
+\noindent\textbf{Nota.} Durante la ejecución de \texttt{gmx pdb2gmx -ter}, se seleccionó el campo de fuerza \textbf{CHARMM27} (número 8)y el modelo de agua \textbf{TIP3P} (número 1). Para los terminales del tripéptido se escogió la opción \texttt{None} tanto en el extremo N (número 2) como en el C (número 4), de forma que se respetan los grupos terminales definidos en el PDB. Estas elecciones generan la topología estándar compatible con CHARMM27.
+\begin{lstlisting}[style=bashstyle,texcl=false]
+# Crear y entrar en la carpeta raiz del proyecto
+mkdir -p ~/ARN_project
+cd ~/ARN_project
+
+# Copiar el PDB inicial del tripeptido ARN
+cp ../for-students/tripeptides/arn/arn.pdb .
+
+# Generar coordenadas (.gro) y topologia (.top) con seleccion manual de terminales
+# -f: entrada PDB; -o: salida .gro; -p: salida .top; -ter: selección de terminales
+# Campo de fuerza: CHARMM27; Agua: TIP3P
+gmx pdb2gmx -f arn.pdb -o arn.gro -p arn.top -ter
+\end{lstlisting}
+
+\textbf{Qué hace}. Asigna tipos atómicos, cargas y conectividades compatibles
+con CHARMM27, produciendo \texttt{arn.gro} y \texttt{arn.top}. \textbf{Salida}.
+Reconoce ACE/ALA/ARG/ASN/NME; la topología incluye secciones~\verb+[ atoms ]+,
+enlaces, ángulos y dihedros.
+
+\subsubsection*{Inspección inicial del archivo \texttt{arn.pdb} mediante \texttt{less}}
+
+Antes de generar la topología con \texttt{pdb2gmx}, se inspeccionó el archivo
+\texttt{arn.pdb} para identificar la organización estructural del tripéptido
+original en formato PDB:
+
+\begin{verbatim}
+less arn.pdb
+\end{verbatim}
+
+Un fragmento relevante del fichero muestra:
+
+\begin{verbatim}
+ATOM      7   N   ALA     2      1.662   1.368  -0.150
+ATOM      8   CA  ALA     2      3.068   1.444  -0.538
+ATOM      9   C   ALA     2      3.850   2.297   0.431
+ATOM     17   N   ARG     3      4.995   1.877   0.851
+ATOM     18   CA  ARG     3      5.752   2.702   1.788
+\end{verbatim}
+
+El formato de cada línea del PDB es:
+
+\begin{center}
+\texttt{ATOM  Index  AtomName  Residue  ResID   x   y   z}
+\end{center}
+
+Donde las coordenadas están en Ångström.
+
+\paragraph*{Importante.}
+Los índices del PDB \textbf{no coinciden} con los índices finales que utiliza GROMACS,
+ya que el programa \texttt{pdb2gmx}:
+\begin{itemize}
+  \item añade hidrógenos explícitos,
+  \item reordena los átomos según el campo de fuerza,
+  \item genera nuevos números de átomo para el archivo \texttt{.gro}.
+\end{itemize}
+
+Por tanto, el PDB sirve únicamente para la \textbf{inspección visual inicial},
+pero las distancias, ángulos y diedros se deben seleccionar siempre utilizando
+los índices del archivo \texttt{.gro} o \texttt{.tpr}, que se muestran en la siguiente sección.
+
+\subsubsection*{Inspección de los archivos \texttt{.gro} y \texttt{.top} con \texttt{less}}
+
+Tras la ejecución de \texttt{gmx pdb2gmx}, se inspeccionaron los archivos generados 
+(\texttt{arn.gro} y \texttt{arn.top}) utilizando el comando:
+
+\begin{verbatim}
+less arn.gro
+less arn.top
+\end{verbatim}
+
+\paragraph{Estructura del archivo \texttt{.gro}.}
+Cada línea del archivo \texttt{.gro} sigue el formato:
+
+\begin{center}
+\texttt{Residuo  NombreResiduo  NombreÁtomo  Índice  x  y  z}
+\end{center}
+
+Donde:
+\begin{itemize}
+  \item \textbf{Residuo}: número del residuo en la cadena (1 = ACE, 2 = ALA, 3 = ARG, 4 = ASN, 5 = NME).
+  \item \textbf{NombreResiduo}: etiqueta de tres letras (ACE, ALA, ARG, ASN, NME).
+  \item \textbf{NombreÁtomo}: nombre del átomo según CHARMM27 (N, HN, CA, HA, C, O…).
+  \item \textbf{Índice}: número de átomo que GROMACS utiliza en todos los análisis.
+  \item \textbf{x, y, z}: coordenadas cartesianas en nm.
+\end{itemize}
+
+Un fragmento representativo del archivo \texttt{arn\_box\_solv.gro} es:
+
+\begin{verbatim}
+    2ALA      N     7   1.044   1.361   1.264
+    2ALA     HN     8   0.996   1.443   1.298
+    2ALA     CA     9   1.185   1.368   1.225
+    3ARG      N    17   1.378   1.412   1.364
+    3ARG     HN    18   1.414   1.323   1.333
+    3ARG     CA    19   1.453   1.494   1.458
+\end{verbatim}
+
+Este análisis permite verificar que:
+\begin{itemize}
+  \item 7--8--9 son N--HN--CA del residuo Ala (átomos consecutivos).
+  \item 17--18--19 son N--HN--CA del residuo Arg.
+  \item 9--17 representan un contacto corto CA(Ala)···N(Arg) entre residuos adyacentes.
+  \item 17--18 forman el enlace covalente N--HN de Arg.
+\end{itemize}
+
+\paragraph{Estructura del archivo \texttt{.top}.}
+El archivo \texttt{arn.top} contiene la descripción completa del sistema:
+
+\begin{itemize}
+  \item \textbf{Tipos atómicos} (columna \emph{type})
+  \item \textbf{Número de residuo} (\emph{resnr})
+  \item \textbf{Nombre del residuo} (\emph{residue})
+  \item \textbf{Nombre del átomo} (\emph{atom})
+  \item \textbf{Carga parcial} (\emph{charge})
+  \item \textbf{Masa} (\emph{mass})
+\end{itemize}
+
+Un fragmento típico del bloque \texttt{[ atoms ]} es:
+
+\begin{verbatim}
+[ atoms ]
+; nr  type  resnr residue  atom  cgnr charge   mass
+  1   CT3      1   ACE     CH3    1   -0.27   12.011
+  2    HA      1   ACE    HH31    2    0.09    1.008
+  3    HA      1   ACE    HH32    3    0.09    1.008
+  4    HA      1   ACE    HH33    4    0.09    1.008
+  5     C      1   ACE       C    5    0.51   12.011
+  6     O      1   ACE       O    6   -0.51   15.999
+\end{verbatim}
+
+Este bloque confirma:
+\begin{itemize}
+  \item que los grupos terminales ACE y NME son reconocidos correctamente,
+  \item que las cargas parciales y tipos atómicos son los de CHARMM27,
+  \item que la topología generada está preparada para simulación.
+\end{itemize}
+
+\paragraph*{Conclusión.}  
+La inspección con \texttt{less} permite verificar que la estructura generada es 
+correcta, que los índices atómicos usados en distancias/ángulos son válidos, y 
+que la topología coincide con el campo de fuerza seleccionado.
+
+\subsubsection*{Definición de la caja (\texttt{gmx editconf})}
+\begin{lstlisting}[style=bashstyle]
+# Caja cúbica de 3.0 nm de lado, soluto centrado
+# -bt cubic: define la forma de la caja
+# -box 3.0 3.0 3.0: dimensiones en nm (soluto centrado automáticamente)
+gmx editconf -f arn.gro -o arn-box.gro -bt cubic -box 3.0 3.0 3.0
+\end{lstlisting}
+\textbf{Qué hace}. Define la celda periódica (no altera la topología) y fija el volumen para la solvatación.
+
+\subsubsection*{Solvatación (\texttt{gmx solvate})}
+\begin{lstlisting}[style=bashstyle]
+# Llenar la caja con agua TIP3P y actualizar la topología
+gmx solvate -cp arn-box.gro -cs -o arn_box_solv.gro -p arn.top
+
+# (Opcional) PDB para inspección visual en PyMOL
+gmx editconf -f arn_box_solv.gro -o arn_box_solv.pdb
+\end{lstlisting}
+\textbf{Qué hace}. Inserta moléculas de agua coherentes con TIP3P y actualiza \texttt{arn.top} con el número de SOL. El recuento típico total ronda \(\sim\)2640 átomos para este tamaño de caja.
+
+\begin{lstlisting}[style=bashstyle]
+pymol arn_box_solv.pdb
+\end{lstlisting}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.90\textwidth]{img/solvatacion.png}
+  \caption{\textbf{Solvatación}. Péptido ARN centrado en caja cúbica de \SI{3.0}{nm} y rodeado de agua TIP3P.}
+\end{figure}
+
+\subsubsection*{Inspección del sistema solvatado}
+
+Tras la solvatación, se verificó el contenido del archivo \texttt{arn\_box\_solv.gro}
+mediante el comando:
+
+\begin{verbatim}
+less arn_box_solv.gro
+\end{verbatim}
+
+Un fragmento representativo del fichero es:
+
+\begin{verbatim}
+GRoups of Organic Molecules in ACtion for Science
+ 2640
+    1ACE    CH3    1   0.837   1.239   1.294
+    1ACE   HH31    2   0.825   1.167   1.374
+    2ALA      N    7   1.044   1.361   1.264
+    2ALA     HN    8   0.996   1.443   1.298
+    2ALA     CA    9   1.185   1.368   1.225
+...
+  864SOL    HW1 2636   2.320   2.214   2.320
+  864SOL    HW2 2637   2.251   2.246   2.465
+  865SOL     OW 2638   1.901   2.939   2.162
+  865SOL    HW1 2639   2.000   2.928   2.153
+  865SOL    HW2 2640   1.861   2.853   2.194
+   3.00000   3.00000   3.00000
+\end{verbatim}
+
+En este formato, cada línea corresponde a:
+
+\begin{center}
+\texttt{Residue  AtomName  AtomIndex  x  y  z}
+\end{center}
+
+Donde las coordenadas están en nanómetros.  
+\paragraph*{Importante.} La presencia de los residuos \texttt{SOL} confirma la inserción de agua TIP3P.  
+El encabezado indica que el sistema contiene \textbf{2640 átomos}, coherente con un
+péptido pequeño rodeado de un volumen cúbico de agua de \(3.0\,\mathrm{nm}\).
+
+Este análisis visual permite confirmar que:
+\begin{itemize}
+  \item el péptido aparece centrado en la caja,
+  \item el agua llena completamente el volumen,
+  \item no hay solapamientos extremos tras la construcción del sistema.
+\end{itemize}
+
+% ======================================================
+% 3. BLOQUE DE EQUILIBRIO (EQUILIBRACIÓN NVT)
+% ======================================================
+\section{Bloque de EQUILIBRIO (Ensamble NVT)}
+\label{sec:equilibrio}
+\textbf{Objetivo}. Relajar el solvente y estabilizar la temperatura a \SI{298}{K} y \SI{400}{K} antes de la producción.
+
+\subsection{Estructura de carpetas y ficheros (proyecto)}
+\begin{lstlisting}[style=bashstyle]
+# Carpeta raíz del proyecto
+ARN_project=~/ARN_project
+
+# Carpetas por temperatura (cada una con equilibration, run y analysis)
+mkdir -p $ARN_project/298K/{equilibration,run,analysis}
+mkdir -p $ARN_project/400K/{equilibration,run,analysis}
+\end{lstlisting}
+
+\paragraph{Copiar el archivo de control y el script SLURM.}
+\begin{lstlisting}[style=bashstyle]
+# 298 K
+echo "Copiando archivos de control a 298K/equilibration"
+cd $ARN_project/298K/equilibration
+cp ~/for-students/equilibration-mdp/equiNVT.mdp .
+cp ~/for-students/equilibration-mdp/submit_eck.sh .
+
+# 400 K
+echo "Copiando archivos de control a 400K/equilibration"
+cd $ARN_project/400K/equilibration
+cp ~/for-students/equilibration-mdp/equiNVT.mdp .
+cp ~/for-students/equilibration-mdp/submit_eck.sh .
+\end{lstlisting}
+
+\paragraph{Copiar ficheros del sistema preparado.}
+\begin{lstlisting}[style=bashstyle]
+# 298 K
+cd $ARN_project/298K/equilibration
+cp $ARN_project/arn.top .
+cp $ARN_project/arn_box_solv.gro .
+cp $ARN_project/posre.itp .
+
+# 400 K
+cd $ARN_project/400K/equilibration
+cp $ARN_project/arn.top .
+cp $ARN_project/arn_box_solv.gro .
+cp $ARN_project/posre.itp .
+\end{lstlisting}
+
+\subsection{Neutralización iónica (dentro del Equilibrio)}
+\textbf{Motivación}. Aunque PME tolera carga neta con un fondo uniforme, neutralizar evita artefactos y representa condiciones realistas.
+
+\subsubsection*{Paso 1: preparar \texttt{ion.tpr}}
+
+\noindent\textbf{Nota}. gmx grompp = "preprocesador" de GROMACS. Combina parámetros (.mdp), coordenadas (.gro), topología (.top) y (si existe) checkpoint (.cpt) para generar un archivo .tpr que contiene TODA la configuración necesaria para ejecutar MD.
+
+\begin{lstlisting}[style=bashstyle]
+# .tpr auxiliar con parámetros de corte/PME para genion
+gmx grompp -f equiNVT.mdp -c arn_box_solv.gro -p arn.top -o ion.tpr
+\end{lstlisting}
+
+\subsubsection*{Paso 2: insertar ion para neutralizar}
+
+\noindent\textbf{Nota}. En lugar de añadir un número fijo de iones (como haría -nn), usamos la opción -neutral para que GROMACS calcule automáticamente cuántos iones necesita el sistema para que su carga neta sea exactamente cero.
+
+\begin{lstlisting}[style=bashstyle]
+# Sustituye una molécula de SOL por el ion necesario (p.ej., CL-)
+gmx genion -s ion.tpr -p arn.top -o arn_neutral.gro -neutral
+# Cuando pregunte por el grupo de solvente, seleccionar: SOL (número 13)
+\end{lstlisting}
+
+\paragraph*{Nota sobre el número total de átomos.}
+Tras la solvatación, el sistema contiene \textbf{2640 átomos} (860 moléculas de
+agua TIP3P más el péptido). Durante la neutralización iónica 
+(\texttt{gmx genion -neutral}), GROMACS sustituye una molécula de agua TIP3P 
+(compuesta por 3 átomos) por un ion cloruro Cl$^{-}$ (1 átomo). 
+Como consecuencia, el total se reduce a \textbf{2638 átomos}, que es el valor 
+empleado en todas las etapas posteriores de equilibración, producción y análisis.
+
+\subsubsection*{Paso 3: verificaciones}
+\begin{lstlisting}[style=bashstyle]
+# Recompilar para comprobar ausencia de carga neta
+gmx grompp -f equiNVT.mdp -c arn_neutral.gro -p arn.top -o arn_neutral.tpr
+# Exportar PDB para inspección visual
+gmx editconf -f arn_neutral.gro -o arn-neutral.pdb
+# (Opcional) Distancia mínima ion-soluto
+gmx mindist -f arn_neutral.gro -s arn_neutral.tpr -od mindist_ion.xvg
+\end{lstlisting}
+
+\subsection{Archivo de control de equilibración (\texttt{equiNVT.mdp})}
+\begin{Verbatim}[fontsize=\small,frame=single]
+; ===== Integradora y paso temporal =====
+integrator = md           ; Integrador leap-frog
+dt         = 0.0005       ; 0.5 fs
+
+; ===== Duración del equilibrado =====
+nsteps     = 800000       ; 400 ps (0.5 fs x 800k)
+
+; ===== Tratamiento del centro de masas =====
+constraints= none
+comm-mode  = Linear
+nstcomm    = 1000
+
+; ===== Control de temperatura (NVT real) =====
+Tcoupl     = v-rescale    ; Bussi thermostat 
+tc-grps    = System       ; Acopla todo el sistema
+tau_t      = 0.1          ; Respuesta rápida estable
+ref_t      = 298          ; Usar 400 para la segunda eq
+
+; ===== Velocidades iniciales =====
+gen_vel    = yes
+gen_temp   = 298          ; Usar 400 para la segunda eq
+gen_seed   = 12345678
+
+; ===== (Opcional) Restringir el soluto =====
+; define     = -DPOSRES   ; Requiere posre.itp incluido en la .top
+\end{Verbatim}
+\textbf{Notas}. \texttt{v-rescale} garantiza muestreo canónico; \texttt{gen\_vel=yes} inicializa velocidades Maxwell–Boltzmann; \texttt{ref\_t}/\texttt{gen\_temp} son los únicos parámetros térmicos que cambian entre 298 y 400 K. También se fija explícitamente \texttt{nsteps = 800000}, que produce \textbf{400 ps}, la \emph{duración de equilibración} requerida por la práctica.
+
+\subsection{Equilibración a 298 K}
+\begin{lstlisting}[style=bashstyle]
+cd $ARN_project/298K/equilibration
+# Compilar y ejecutar
+# Ajustar en equiNVT.mdp: ref_t = 298 y gen_temp = 298
+gmx grompp -f equiNVT.mdp -c arn_neutral.gro -p arn.top -o arn_eq_298.tpr
+bash submit_eck.sh # (mdrun -deffnm arn_eq_298 -nt 1)
+gmx editconf -f arn_eq_298.gro -o arn_eq_298.pdb
+\end{lstlisting}
+\textbf{Salida esperada}. 400 ps completados; T media \(\approx\) \SI{298}{K} con fluctuaciones \(\pm\)8–9 K; redistribución del solvente sin colisiones, integración estable.
+
+\begin{lstlisting}[style=bashstyle]
+pymol arn_eq_298.pdb
+\end{lstlisting}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.90\textwidth]{img/equi_298.png}
+  \caption{Equilibración a \SI{298}{K}.}
+\end{figure}
+
+\subsubsection*{Resumen cuantitativo de la equilibración (NVT)}
+
+\begin{lstlisting}[style=bashstyle]
+# Comprobar temperatura
+# gmx energy lee el fichero .edr y permite extraer magnitudes termodinámicas registradas durante la simulación
+# E. cinética, E. potencial, temperatura, presión...
+# En el menú se deben seleccionar las variables por número o nombre.
+gmx energy -f arn_eq_298.edr -o temperatura_298.xvg
+\end{lstlisting}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Modelo} & \textbf{T media (K)} & \textbf{Err.Est. (K)} & \textbf{RMSD (K)} & \textbf{Tot-Drift (K)} \\
+\midrule
+298 K (eq) & 298.104 & 0.25 & 8.866 & -1.589 \\
+\bottomrule
+\end{tabular}
+\caption{Temperatura media durante la equilibración NVT (400 ps).}
+\end{table}
+
+\subsubsection*{Comparación estructural antes y después de la equilibración}
+
+Para confirmar la estabilidad geométrica del sistema durante la fase NVT,
+se compararon las primeras líneas del sistema neutralizado y del sistema
+ya equilibrado:
+
+\begin{verbatim}
+head -n 10 arn_neutral.gro
+
+Protein in water
+ 2638
+    1ACE    CH3    1   0.837   1.239   1.294
+    1ACE   HH31    2   0.825   1.167   1.374
+    2ALA      N    7   1.044   1.361   1.264
+    2ALA     HN    8   0.996   1.443   1.298
+\end{verbatim}
+
+Tras 400 ps de equilibración:
+
+\begin{verbatim}
+head -n 10 arn_eq_298.gro
+
+Protein in water
+ 2638
+    1ACE    CH3    1   1.344   1.494   1.258   0.5542 -0.3714  0.1199
+    1ACE   HH31    2   1.370   1.497   1.371  -0.4920  1.3102  1.5642
+    2ALA      N    7   1.503   1.651   1.192   0.4244 -0.5396  0.1994
+    2ALA     HN    8   1.456   1.715   1.256  -1.6591  0.9063 -0.9113
+\end{verbatim}
+
+El formato de las líneas después de la equilibración incluye:
+
+\begin{center}
+\texttt{Residue AtomName Index  x y z   vx vy vz}
+\end{center}
+
+Que ahora incorpora las \textbf{velocidades atómicas} \((v_x, v_y, v_z)\)
+generadas por el termostato.
+
+Se observa que:
+\begin{itemize}
+  \item el número total de átomos permanece constante (2638),
+  \item las posiciones cambian ligeramente debido al reordenamiento del solvente,
+  \item las velocidades iniciales se han estabilizado según el reparto Maxwell–Boltzmann.
+\end{itemize}
+
+\subsection{Equilibración a 400 K}
+\begin{lstlisting}[style=bashstyle]
+cd $ARN_project/400K/equilibration
+# Ajustar en equiNVT.mdp: ref_t = 400 y gen_temp = 400
+gmx grompp -f equiNVT.mdp -c arn_neutral.gro -p arn.top -o arn_eq_400.tpr
+bash submit_eck.sh   # (mdrun -deffnm arn_eq_400 -nt 1)
+gmx editconf -f arn_eq_400.gro -o arn_eq_400.pdb
+\end{lstlisting}
+\textbf{Salida esperada}. 400 ps sin errores; T \(\approx\) \SI{400}{K} (RMSD \(\sim\)9 K); mayor amplitud de fluctuaciones, coherente con \(T\).
+
+\begin{lstlisting}[style=bashstyle]
+pymol arn_eq_400.pdb
+\end{lstlisting}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.90\textwidth]{img/equi_400.png}
+  \caption{Equilibración a \SI{400}{K}.}
+\end{figure}
+
+\begin{lstlisting}[style=bashstyle]
+# Comprobar temperatura
+# gmx energy lee el fichero .edr y permite extraer magnitudes termodinámicas registradas durante la simulación
+# E. cinética, E. potencial, temperatura, presión...
+# En el menú se deben seleccionar las variables por número o nombre.
+gmx energy -f arn_eq_400.edr -o temperatura_400.xvg
+\end{lstlisting}
+
+\subsubsection*{Resumen cuantitativo de la equilibración (NVT)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Modelo} & \textbf{T media (K)} & \textbf{Err.Est. (K)} & \textbf{RMSD (K)} & \textbf{Tot-Drift (K)} \\
+\midrule
+400 K (eq) & 400.185 & 0.25 & 9.157 & -1.267 \\
+\bottomrule
+\end{tabular}
+\caption{Temperatura media durante la equilibración NVT (400 ps).}
+\end{table}
+
+\subsubsection*{Comparación estructural a 298 K y 400 K}
+
+De forma análoga, se verificó la estructura inicial del sistema a 400 K:
+
+\begin{verbatim}
+head -n 10 arn_eq_400.gro
+
+Protein in water
+ 2638
+    1ACE    CH3    1   0.387   2.560   1.372   0.0911  0.4564  0.3349
+    1ACE   HH31    2   0.417   2.511   1.282  -2.0350  0.9370 -1.3482
+    2ALA      N    7   0.521   2.725   1.505  -0.1331  0.4494  1.0357
+    2ALA     HN    8   0.507   2.672   1.585  -0.8350 -0.8074 -1.5644
+\end{verbatim}
+
+Los valores de velocidad son mayores que en el caso de 298 K, lo que refleja
+la relación esperada entre energía cinética y temperatura:
+
+\[
+E_k \propto T.
+\]
+
+Además, los átomos de agua muestran desplazamientos algo mayores, coherentes con
+la mayor movilidad térmica del sistema.
+
+% ======================================================
+% 4. BLOQUE de RUN (PRODUCCIÓN NVT)
+% ======================================================
+\section{Bloque de RUN (Producción NVT)}
+\label{sec:run}
+\textbf{Objetivo}. Generar trayectorias de producción con \textbf{continuidad física} desde el equilibrado (no se regeneran velocidades).
+
+\subsection{Preparación del entorno de ejecución}
+\begin{lstlisting}[style=bashstyle]
+# 298 K
+cd $ARN_project/298K/run
+cp ../equilibration/arn.top .
+cp ../equilibration/arn_eq_298.gro .
+cp ../equilibration/arn_eq_298.cpt .
+cp ../equilibration/posre.itp .
+
+# 400 K
+cd $ARN_project/400K/run
+cp ../equilibration/arn.top .
+cp ../equilibration/arn_eq_400.gro .
+cp ../equilibration/arn_eq_400.cpt .
+cp ../equilibration/posre.itp .
+\end{lstlisting}
+\textbf{Resumen técnico}. \texttt{arn\_eq\_XXX.gro} (estructura final), \texttt{arn\_eq\_XXX.cpt} (checkpoint con velocidades), \texttt{posre.itp} (si se activa POSRES), \texttt{arn.top} (topología coherente).
+
+\subsection{Archivo de control de RUN (\texttt{runNVT.mdp})}
+\begin{Verbatim}[fontsize=\small,frame=single]
+; ===== Integración =====
+integrator   = md
+
+; ===== Paso y duración =====
+dt           = 0.0005    ; 0.5 fs
+nsteps       = 4000      ; 2 ps
+
+; ===== Homogeneidad con la eq =====
+constraints  = none
+comm-mode    = Linear
+nstcomm      = 1000
+
+; ===== Termostato =====
+Tcoupl       = v-rescale
+tc-grps      = System
+tau_t        = 0.1
+ref_t        = 298       ; usar 400 para la segunda producción
+
+; ===== Velocidades =====
+gen_vel      = no        ; continuidad (se leen del .cpt)
+\end{Verbatim}
+\textbf{Notas}. \texttt{gen\_vel=no} garantiza continuidad dinámica; \texttt{nsteps = 4000} produce \textbf{2 ps}, la \emph{duración de producción} requerida.
+
+\subsection{Generación del \texttt{.tpr}}
+\begin{lstlisting}[style=bashstyle]
+# 298 K
+gmx grompp -f runNVT.mdp -c arn_eq_298.gro -t arn_eq_298.cpt -p arn.top -o arn_run_298.tpr
+# 400 K
+gmx grompp -f runNVT.mdp -c arn_eq_400.gro -t arn_eq_400.cpt -p arn.top -o arn_run_400.tpr
+\end{lstlisting}
+\textbf{Validación}. El preprocesador confirma lectura de coordenadas/velocidades, grados de libertad y malla PME sin inconsistencias topológicas.
+
+\subsection{Ejecución con SLURM}
+\noindent\textbf{Nota}. gmx mdrun = motor de dinámica molecular. Lee el .tpr, calcula fuerzas, integra ecuaciones de Newton y produce .trr, .edr, .log, .gro final.
+\begin{lstlisting}[style=bashstyle]
+#!/bin/bash
+#SBATCH -p eck-q
+#SBATCH --chdir=$ARN_project/298K/run
+#SBATCH -J run298
+#SBATCH --cpus-per-task=1
+
+date
+gmx mdrun -deffnm arn_run_298 -nt 1
+date
+
+# Ejecución equivalente para 400 K:
+# gmx mdrun -deffnm arn_run_400 -nt 1
+\end{lstlisting}
+\textbf{Salida esperada}. Lectura correcta del \texttt{.tpr}, ejecución sin errores, \(\sim\)2000 \emph{frames} (2 ps), rendimiento \(\sim\)21 ns/día y ficheros: \texttt{.trr}, \texttt{.edr}, \texttt{.log}, \texttt{.tpr}.
+
+\subsection{Exportación para visualización}
+\begin{lstlisting}[style=bashstyle]
+# Sistema completo (Protein + agua + ion -> número 0)
+gmx traj -f arn_run_298.trr -s arn_run_298.tpr -oxt cartoon.pdb
+# Solo soluto (seleccionar 'Protein' -> número 1)
+gmx traj -f arn_run_298.trr -s arn_run_298.tpr -oxt arn_solo.pdb
+\end{lstlisting}
+
+\noindent\textbf{Nota.} En la visualización del \emph{sistema completo} en PyMOL , la opción \texttt{Display -> Roving Detail} permite resaltar automáticamente detalles locales del entorno (geometría, contactos y posibles enlaces de hidrógeno), facilitando la inspección de la estructura en movimiento.
+
+\begin{lstlisting}[style=bashstyle]
+# Sistema completo (Protein + agua + ion)
+pymol cartoon.pdb
+# Solo soluto
+pymol arn_solo.pdb
+\end{lstlisting}
+
+% --- Figura: Sistema completo 298 K ---
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.90\textwidth]{img/arn_298_completo.png}
+  \caption{\textbf{298 K – Sistema completo}. Representación del tripéptido ARN junto con el solvente e ion, visualizado con la opción \textit{Roving Detail}.}
+\end{figure}
+
+% --- Figura: Solo soluto 298 K ---
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.90\textwidth]{img/arn_solo_298.png}
+  \caption{\textbf{298 K – Soluto únicamente}. Visualización del tripéptido ARN sin agua ni iones, lo que permite observar una conformación compacta y estable a esa temperatura.}
+\end{figure}
+
+\begin{lstlisting}[style=bashstyle]
+# Sistema completo (Protein + agua + ion)
+gmx traj -f arn_run_400.trr -s arn_run_400.tpr -oxt cartoon.pdb
+# Solo soluto (seleccionar 'Protein')
+gmx traj -f arn_run_400.trr -s arn_run_400.tpr -oxt arn_solo.pdb
+\end{lstlisting}
+
+% --- Figura: Sistema completo 400 K ---
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.90\textwidth]{img/arn_400_completo.png}
+  \caption{\textbf{400 K – Sistema completo}. El incremento térmico provoca un movimiento más amplio y fluctuaciones intensas del tripéptido ARN en el seno del disolvente (visualizado con \textit{Roving Detail}).}
+\end{figure}
+
+% --- Figura: Solo soluto 400 K ---
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.90\textwidth]{img/run_400_solo.png}
+  \caption{\textbf{400 K – Soluto únicamente}. Representación del tripéptido ARN sin agua ni iones. Una mayor energía térmica genera una conformación más extendida, con mayor movilidad torsional y desplazamientos amplios del esqueleto peptídico.}
+\end{figure}
+
+% ======================================================
+% 5. BLOQUE DE ANÁLISIS (POSTPROCESADO)
+% ======================================================
+\section{Bloque de ANÁLISIS (Postprocesado)}
+\label{sec:analisis}
+
+\noindent
+\textbf{Objetivo}. Cuantificar propiedades estructurales y energéticas a partir de los archivos \texttt{.trr}, \texttt{.edr} y \texttt{.tpr}.
+
+\noindent
+\textbf{Escalas y unidades}. Distancias (nm), ángulos (°), energía (kJ/mol), temperatura (K), tiempo (ps), velocidades (nm/ps).
+
+\noindent
+\textbf{Figuras}. Todas las figuras incluidas en este informe fueron generadas con \textbf{Python} a partir de los archivos \texttt{.xvg} producidos por GROMACS, utilizando las bibliotecas \texttt{numpy}, \texttt{pandas} y \texttt{matplotlib}.
+% ======================================================
+\subsection{Preparación del directorio de análisis}
+
+\begin{lstlisting}[style=bashstyle]
+# 298 K
+# 298 K — copio todos los archivos generados durante la producción NVT
+# .tpr -> topología + parámetros
+# .gro -> última estructura
+# .trr -> trayectoria completa
+# .edr -> energías
+# .log -> registro de ejecución
+cp ../run/arn_run_298.tpr .
+cp ../run/arn_run_298.gro .
+cp ../run/arn_run_298.trr .
+cp ../run/arn_run_298.edr .
+cp ../run/arn_run_298.log .
+
+# 400 K — lo mismo para la producción a temperatura alta
+cp ../run/arn_run_400.tpr .
+cp ../run/arn_run_400.gro .
+cp ../run/arn_run_400.trr .
+cp ../run/arn_run_400.edr .
+cp ../run/arn_run_400.log .
+\end{lstlisting}
+
+Los archivos obtenidos permiten realizar todos los análisis.
+
+% ======================================================
+\subsection{Radio de giro}
+
+\noindent\textbf{Definición.} El radio de giro (\(R_{\mathrm{g}}\)) se define como:
+
+\[
+R_{\mathrm{g}}^{2} = \frac{1}{M} \sum_{i=1}^{N} m_i \left\lVert \mathbf{r}_i - \mathbf{R}_{\mathrm{CM}} \right\rVert^2,
+\]
+
+Donde \(M\) es la masa total, \(m_i\) la masa del átomo \(i\), \(\mathbf{r}_i\) su posición y 
+\(\mathbf{R}_{\mathrm{CM}}\) el centro de masas.
+
+\noindent\textbf{Nota}. En la ejecución interactiva de gmx gyrate se seleccionó el grupo 'Protein' -> número 1, que en este sistema corresponde normalmente a la opción 1 del menú de selección.
+
+\begin{lstlisting}[style=bashstyle]
+# Calcula el radio de giro (Rg) a partir de la trayectoria
+# -f: trayectoria .trr   -s: topología   -o: salida .xvg
+gmx gyrate -f arn_run_298.trr -s arn_run_298.tpr -o gyrate_298.xvg
+gmx gyrate -f arn_run_400.trr -s arn_run_400.tpr -o gyrate_400.xvg
+\end{lstlisting}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_gyrate_298K.png}
+\caption{Radio de giro a 298 K.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_gyrate_400K.png}
+\caption{Radio de giro a 400 K.}
+\end{figure}
+
+\paragraph*{Análisis del radio de giro}
+
+Las Figuras anteriores muestran la evolución temporal del radio de giro (Rg), una
+magnitud que cuantifica la compacidad global del tripéptido. En ambos regímenes
+térmicos, el Rg presenta oscilaciones suaves y continuas, reflejo del
+desplazamiento colectivo de los átomos del backbone y de la reorganización del
+entorno inmediato.
+
+A \SI{298}{K}, el radio de giro se mantiene en torno a
+\(0.435{-}0.453~\mathrm{nm}\), indicando una conformación relativamente compacta y
+estable. A \SI{400}{K}, el Rg disminuye ligeramente hasta valores próximos a
+\(0.398{-}0.424~\mathrm{nm}\), mostrando mayores fluctuaciones y episodios de mayor
+contracción estructural. Este comportamiento es coherente con un incremento en la
+flexibilidad interna inducido por la temperatura, que favorece la exploración de
+estados conformacionales más dinámicos y menos extendidos.
+
+Sin embargo, la duración de la simulación es demasiado breve para extraer
+conclusiones estadísticas sólidas: los datos no están decorrelacionados y no
+puede evaluarse un promedio convergente ni intervalos de confianza. Por tanto,
+la aparente disminución del Rg a \SI{400}{K} debe interpretarse únicamente como
+una \emph{tendencia observada} en esta ventana temporal, no como un cambio
+estructural concluyente.
+
+\subsection{Verificación de índices atómicos}
+
+Antes de seleccionar los átomos para distancias y ángulos, se inspeccionó
+el archivo \texttt{arn\_box\_solv.gro} utilizando:
+
+\begin{verbatim}
+less arn_box_solv.gro
+\end{verbatim}
+
+Las líneas relevantes del fichero son:
+
+\begin{verbatim}
+    2ALA      N      7
+    2ALA     HN      8
+    2ALA     CA      9
+    2ALA      C     15
+    2ALA      O     16
+    ...
+    3ARG      N     17
+    3ARG     HN     18
+    3ARG     CA     19
+\end{verbatim}
+
+Estos índices demuestran que:
+\begin{itemize}
+  \item \textbf{7--9--15} son átomos consecutivos del backbone de ALA-2 (N--CA--C),
+  \item \textbf{9--15--17} conectan el C de ALA-2 con el N de ARG-3 formando el \textit{enlace peptídico},
+  \item \textbf{7--9--15--17} definen el diedro N--CA--C--N (\(\psi\) del residuo ALA-2),
+  \item \textbf{9--15--17--19} definen el diedro CA--C--N--CA (\(\omega\) del enlace peptídico entre ALA-2 y ARG-3).
+\end{itemize}
+
+Con esta verificación se garantiza que todos los átomos seleccionados 
+para distancias, ángulos y diedros cumplen el requisito de la práctica:
+\emph{“los átomos deben estar juntos o ser contiguos en el esqueleto peptídico”}.
+
+\noindent\textbf{Nota previa}. Antes de definir el archivo \texttt{distancias.ndx}, se verificaron visualmente en PyMOL los átomos implicados en cada enlace. Para ello se emplearon las siguientes selecciones:
+
+\begin{verbatim}
+pymol select enlace1, id 7+9     # N–CA (ALA-2)
+pymol select enlace2, id 9+15    # CA–C (ALA-2)
+\end{verbatim}
+
+\begin{figure}[H]
+    \centering
+
+    % --- Imagen 1 ---
+    \includegraphics[width=0.60\textwidth]{pymol_enlace1.png}
+    \caption*{\small Selección en PyMOL del enlace 7--9 (\texttt{select enlace1, id 7+9 }).}
+
+    \vspace{0.4cm}
+
+    % --- Imagen 2 ---
+    \includegraphics[width=0.70\textwidth]{pymol_enlace2.png}
+    \caption*{\small Selección en PyMOL del enlace 9--15 (\texttt{select enlace2, id 9+15}).}
+
+    \caption{\textbf{Verificación visual en PyMOL} de los pares atómicos usados para el análisis de distancias.}
+\end{figure}
+
+Esto permitió confirmar los pares atómicos seleccionados para el análisis 
+geométrico del backbone. En concreto, se identificaron los enlaces consecutivos del 
+residuo ALA-2: el par \textbf{7--9} corresponde al enlace covalente \textbf{N--CA}, mientras que el par 
+\textbf{9--15} define el enlace covalente \textbf{CA--C}. Estos dos enlaces, adyacentes en el esqueleto 
+peptídico, constituyen las unidades estructurales básicas del backbone y representan magnitudes idóneas 
+para evaluar su estabilidad geométrica bajo distintas condiciones de temperatura.
+
+\noindent\textbf{Identificación de los enlaces analizados.} 
+El par de átomos 7--9 corresponde al \textbf{enlace covalente N--CA} del residuo ALA-2. 
+El par 9--15 corresponde al \textbf{enlace covalente CA--C} del mismo residuo. 
+Ambos pares representan enlaces consecutivos del backbone y son ideales para evaluar 
+la estabilidad geométrica del esqueleto peptídico bajo diferentes condiciones de temperatura.
+
+\subsection{Distancias interatómicas}
+
+\noindent\textbf{Nota}. Al ejecutar gmx distance, GROMACS solicita seleccionar el grupo definido en el archivo distancias.ndx. Se seleccionó \textbf{Opción 0: \texttt{[ enlace\_N\_CA ]}} seguida de Enter para luego selecciona \textbf{Opción 1: \texttt{[ enlace\_CA\_C ]}} para calcular simultáneamente ambos enlaces del backbone.
+
+\begin{lstlisting}[style=bashstyle]
+# Creo un archivo .ndx con los pares de átomos que quiero medir
+# 7-9 = enlace N-CA ; 9-15 = enlace CA-C
+cat > dist_backbone.ndx << 'EOF'
+[ enlace_N_CA ]
+7 9
+[ enlace_CA_C ]
+9 15
+EOF
+
+# Distancias a 298 K -> ficheros nuevos
+gmx distance -f arn_run_298.trr -s arn_run_298.tpr -n dist_backbone.ndx -oall dist_backbone_298.xvg
+
+# Distancias a 400 K -> ficheros nuevos
+gmx distance -f arn_run_400.trr -s arn_run_400.tpr -n dist_backbone.ndx -oall dist_backbone_400.xvg
+\end{lstlisting}
+
+\subsubsection*{Análisis de las distancias internas}
+
+Los siguientes valores fueron proporcionados directamente por \texttt{gmx distance}
+a partir de las trayectorias simuladas. Se analizaron los enlaces consecutivos
+\textbf{N--CA} y \textbf{CA--C}, que comparten el átomo \textbf{CA}.
+
+\begin{table}[h!]
+    \centering
+    \caption{Distancias promedio y desviaciones estándar obtenidas con GROMACS
+    para los enlaces del backbone a 298 K y 400 K.}
+    \begin{tabular}{lccc}
+        \hline
+        \textbf{Enlace} & \textbf{Temperatura} & \textbf{Distancia media (nm)} & \textbf{Desv. estándar (nm)} \\
+        \hline
+        N--CA & 298 K & 0.14516 & 0.00228 \\
+        N--CA & 400 K & 0.14539 & 0.00460 \\
+        CA--C & 298 K & 0.15280 & 0.00288 \\
+        CA--C & 400 K & 0.15288 & 0.00443 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+Las distancias covalentes N--CA y CA--C muestran valores medios prácticamente
+idénticos entre \SI{298}{K} y \SI{400}{K}, lo que indica que el aumento de
+temperatura no altera su longitud promedio. No obstante, las fluctuaciones se
+incrementan de forma clara a \SI{400}{K}, duplicándose aproximadamente las
+desviaciones estándar. Este comportamiento es coherente con el aumento de la
+energía térmica: los enlaces mantienen su geometría media, pero vibran con mayor
+amplitud.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_distancias_298K.png}
+\caption{Distancias de backbone N–CA (7--9) y CA–C (9--15) a 298 K.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_distancias_400K.png}
+\caption{Distancias de backbone N–CA (7--9) y CA–C (9--15) a 400 K.}
+\end{figure}
+
+\paragraph*{Comparación de las distancias de enlace a 298 K y 400 K}
+
+La comparación directa entre ambas figuras revela que las distancias del backbone
+\textbf{N--CA (7--9)} y \textbf{CA--C (9--15)} se mantienen extraordinariamente estables 
+tanto a \SI{298}{K} como a \SI{400}{K}, oscilando alrededor de sus valores medios sin 
+mostrar derivas apreciables a lo largo de los \SI{2}{ps} de simulación. En la gráfica de 
+\SI{298}{K}, ambas señales presentan fluctuaciones muy estrechas y regulares, con un 
+perfil prácticamente uniforme durante todo el intervalo temporal. En la gráfica de 
+\SI{400}{K} se observa un incremento moderado en la amplitud de las oscilaciones, 
+reflejo de la mayor agitación térmica, pero las trayectorias permanecen igualmente 
+acotadas y centradas en los mismos valores medios que a \SI{298}{K}. En conjunto, la 
+comparación demuestra que el aumento de temperatura no altera las longitudes 
+medias de los enlaces covalentes del esqueleto peptídico, limitándose únicamente a 
+amplificar las fluctuaciones instantáneas sin comprometer la integridad estructural 
+del backbone.
+
+%======================================================
+\subsection{Ángulos internos}
+
+\noindent\textbf{Nota}. En el menú de \texttt{gmx angle} se seleccionaron los grupos definidos en
+\texttt{ang\_backbone.ndx}:
+Opción 0: \texttt{[ ang\_N\_CA\_C ]} (átomos 7--9--15, ángulo N--CA--C),\\
+Opción 1: \texttt{[ ang\_CA\_C\_N ]} (átomos 9--15--17, ángulo CA--C--N).
+
+\begin{lstlisting}[style=bashstyle]
+# Creo archivo .ndx con los ángulos elegidos: 7-9-15 y 9-15-17
+echo -e "[ ang_N_CA_C ]\n 7 9 15\n[ ang_CA_C_N ]\n 9 15 17" > ang_backbone.ndx
+
+# 298 K (dos ejecuciones, un grupo cada vez)
+# Para el primer ángulo (Selecciona el grupo 0 cuando lo pida)
+gmx angle -f arn_run_298.trr -n ang_backbone.ndx -ov ang_N_CA_C_298.xvg -xvg none
+# Para el segundo ángulo (Selecciona el grupo 1 cuando lo pida)
+gmx angle -f arn_run_298.trr -n ang_backbone.ndx -ov ang_CA_C_N_298.xvg -xvg none
+
+# 400 K
+# Para el primer ángulo (Selecciona el grupo 0 cuando lo pida)
+gmx angle -f arn_run_400.trr -n ang_backbone.ndx -ov ang_N_CA_C_400.xvg -xvg none
+# Para el segundo ángulo (Selecciona el grupo 1 cuando lo pida)
+gmx angle -f arn_run_400.trr -n ang_backbone.ndx -ov ang_CA_C_N_400.xvg -xvg none
+\end{lstlisting}
+
+\subsubsection*{Análisis de ángulos internos}
+
+Los dos ángulos analizados corresponden al esqueleto peptídico:  
+(i) \textbf{N--CA--C (7--9--15)},  
+(ii) \textbf{CA--C--N (9--15--17)}.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcc}
+\toprule
+\textbf{Ángulo} & \textbf{298 K (°)} & \textbf{400 K (°)} \\
+\midrule
+N--CA--C (7--9--15) & 110.37 & 116.05 \\
+CA--C--N (9--15--17) & 116.97 & 118.28 \\
+\bottomrule
+\end{tabular}
+\caption{Valores medios de los ángulos internos del backbone a 298 K y 400 K.}
+\end{table}
+
+\noindent\textbf{Interpretación}.  
+Los valores medios muestran que ambos ángulos mantienen una geometría estable en las dos temperaturas, con incrementos moderados a \SI{400}{K} que no alteran la estructura básica del backbone. El ángulo N--CA--C aumenta de \(\sim 110^\circ\) a \(\sim 116^\circ\), mientras que CA--C--N pasa de \(\sim 117^\circ\) a \(\sim 118^\circ\), variaciones compatibles con una mayor flexibilidad térmica. Las desviaciones estándar (\(2{-}4^\circ\)) indican fluctuaciones acotadas y coherentes con el comportamiento esperable de un esqueleto covalente rígido sometido a dinámica molecular en régimen NVT.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_angulos_298K.png}
+\caption{Ángulos internos a 298 K.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_angulos_400K.png}
+\caption{Ángulos internos a 400 K.}
+\end{figure}
+
+\paragraph*{Comparación de los ángulos de enlace}
+
+Las figuras comparan la evolución temporal de los ángulos \textbf{N--CA--C (7--9--15)} y 
+\textbf{CA--C--N (9--15--17)} del backbone a \SI{298}{K} y \SI{400}{K}. En ambos regímenes térmicos, los dos
+ángulos oscilan alrededor de valores medios bien definidos, sin mostrar derivas apreciables durante los 
+\SI{2}{ps} de simulación. A \SI{298}{K}, las fluctuaciones son más estrechas y regulares: el ángulo N--CA--C 
+permanece predominantemente cercano a \(110^\circ\), mientras que el ángulo CA--C--N se mantiene alrededor de 
+\(117{-}118^\circ\), describiendo variaciones moderadas y suavemente acotadas.
+
+A \SI{400}{K}, ambos ángulos conservan prácticamente las mismas posiciones medias, pero las trayectorias 
+presentan oscilaciones más amplias y frecuentes, reflejo directo del aumento de la movilidad térmica. Aun así, 
+las señales permanecen confinadas dentro de sus intervalos característicos y no se observan cambios estructurales 
+relevantes ni desviaciones persistentes respecto a sus valores centrales. En conjunto, la comparación muestra que 
+el incremento de temperatura amplifica las fluctuaciones instantáneas sin alterar la geometría promedio del 
+esqueleto peptídico, evidenciando la estabilidad de los ángulos de enlace N--CA--C y CA--C--N incluso bajo 
+condiciones térmicas elevadas.
+% ======================================================
+\subsection{Ángulos diedros}
+
+\noindent\textbf{Nota sobre los diedros analizados}. 
+Los diedros seleccionados, \textbf{N--CA--C--N (7--9--15--17)} y 
+\textbf{CA--C--N--CA (9--15--17--19)}, corresponden a torsiones internas consecutivas del 
+backbone peptídico. Estos ángulos describen la rotación en torno a los enlaces 
+C$\alpha$--C y C--N del esqueleto, pero \textbf{no} coinciden con los ángulos 
+\(\phi\) y \(\psi\) clásicos del mapa de Ramachandran. Por tanto, sus valores no 
+deben compararse directamente con \(\phi/\psi\).
+
+\noindent\textbf{Nota}. En el menú interactivo de \texttt{gmx angle} (modo \textit{dihedral}) se seleccionaron:
+opción 0: \texttt{[ dih\_N\_CA\_C\_N ]} (7--9--15--17),\quad
+opción 1: \texttt{[ dih\_CA\_C\_N\_CA ]} (9--15--17--19).
+
+\begin{lstlisting}[style=bashstyle]
+# Archivo para diedros de backbone
+echo -e "[ dih_N_CA_C_N ]\n 7 9 15 17\n[ dih_CA_C_N_CA ]\n 9 15 17 19" > dih_backbone.ndx
+
+# 298 K
+# Diedro 1: 7-9-15-17  (N–CA–C–N)
+echo 0 | gmx angle -f arn_run_298.trr -n dih_backbone.ndx \
+  -type dihedral -ov dih_N_CA_C_N_298.xvg -xvg none
+
+# Diedro 2: 9-15-17-19 (CA–C–N–CA)
+echo 1 | gmx angle -f arn_run_298.trr -n dih_backbone.ndx \
+  -type dihedral -ov dih_CA_C_N_CA_298.xvg -xvg none
+
+  # 400 K
+# Diedro 1: 7-9-15-17  (N–CA–C–N)
+echo 0 | gmx angle -f arn_run_400.trr -n dih_backbone.ndx \
+  -type dihedral -ov dih_N_CA_C_N_400.xvg -xvg none
+
+  # Diedro 2: 9-15-17-19 (CA–C–N–CA)
+echo 1 | gmx angle -f arn_run_400.trr -n dih_backbone.ndx \
+  -type dihedral -ov dih_CA_C_N_CA_400.xvg -xvg none
+\end{lstlisting}
+
+\subsubsection*{Análisis de ángulos diedros del esqueleto peptídico}
+
+Los dos diedros analizados corresponden a torsiones internas consecutivas del backbone peptídico. Ninguno de ellos corresponde a los ángulos de Ramachandran
+(\(\phi,\psi\)), por lo que no deben interpretarse como tales.:  
+(i) \textbf{N--CA--C--N (7--9--15--17)},  
+(ii) \textbf{CA--C--N--CA (9--15--17--19)}.
+
+\noindent\textbf{Resultados de GROMACS}.  
+El comando \texttt{gmx angle -type dihedral} proporciona, además de los valores
+instantáneos, una \emph{media lineal} del ángulo y el parámetro de orden \(S^{2}\).
+En variables periódicas como los diedros, la media lineal puede resultar
+engañosa: valores próximos a \(+180^\circ\) y a \(-180^\circ\) se cancelan,
+produciendo promedios artificiales cercanos a \(0^\circ\). El propio \(S^{2}\),
+sin embargo, sí refleja la rigidez real del ángulo.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lcccccc}
+\toprule
+\multirow{2}{*}{\textbf{Diedro}} 
+& \multicolumn{3}{c}{\textbf{298 K}} 
+& \multicolumn{3}{c}{\textbf{400 K}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+& \textbf{Media (°)} & \textbf{Std (°)} & $\mathbf{S^{2}}$ 
+& \textbf{Media (°)} & \textbf{Std (°)} & $\mathbf{S^{2}}$ \\
+\midrule
+N--CA--C--N (7--9--15--17)    
+&   9.72  &  8.73   & 0.977  
+& $-42.33$ & 11.40  & 0.961 \\
+CA--C--N--CA (9--15--17--19)  
+& $-32.25$ & 169.98 & 0.979  
+&   55.37  & 165.17 & 0.986 \\
+\bottomrule
+\end{tabular}
+\caption{Medias lineales, desviaciones estándar y parámetros de orden $S^2$ de los dos diedros analizados. Las medias lineales no deben interpretarse como orientaciones reales debido a la periodicidad angular; el valor de $S^2$ es el indicador fiable de rigidez torsional.}
+\end{table}
+
+\noindent\textbf{Interpretación}.  
+El diedro \textbf{N--CA--C--N} presenta una banda estrecha de valores en ambos
+regímenes térmicos, lo que indica que la torsión alrededor del enlace C$\alpha$--C es
+flexible pero acotada. A 400 K se observa un desplazamiento hacia valores
+negativos (aprox. \(-40^\circ\)), consistente con una mayor exploración
+conformacional inducida por la temperatura.
+
+El diedro \textbf{CA--C--N--CA}, que corresponde al ángulo \(\omega\) del enlace
+peptídico, aparece con medias lineales próximas a \(0^\circ\); sin embargo, esto es
+un artefacto matemático. El parámetro de orden \(S^{2}\approx 0.97{-}0.99\) indica
+una rigidez muy alta, compatible con un enlace peptídico en conformación
+\textbf{trans} (\(\pm 180^\circ\)) durante toda la simulación. La desviación estándar
+tan grande (\(\sim 165^\circ\)) simplemente refleja el cruce numérico entre \(-180^\circ\)
+y \(+180^\circ\).
+
+En resumen, el incremento térmico a 400 K aumenta la flexibilidad del diedro
+\textbf{N--CA--C--N}, mientras que el ángulo \(\omega\) permanece rígido y
+preferentemente trans, como es esperable en un enlace peptídico. Las medias
+lineales deben interpretarse con cautela y no representan el valor físico real
+del diedro debido a la periodicidad angular.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_diedros_tiempo_298K.png}
+\caption{Ángulos diedros a 298 K.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_diedros_tiempo_400K.png}
+\caption{Ángulos diedros a 400 K.}
+\end{figure}
+
+\paragraph*{Comparación de los ángulos diedros (298 K vs 400 K)}
+En la figura de \SI{298}{K}, el diedro \textbf{N--CA--C--N (7--9--15--17)} evoluciona en una banda estrecha
+próxima a \(0^\circ\), con oscilaciones moderadas y sin saltos, mientras que el diedro \textbf{CA--C--N--CA
+(9--15--17--19)} permanece mayoritariamente en torno a \(\pm 180^\circ\), con cambios bruscos que reflejan
+el cruce periódico entre los estados equivalentes trans.
+
+A \SI{400}{K}, \textbf{N--CA--C--N} muestra un \emph{desplazamiento claro del valor medio} hacia
+ángulos negativos (alrededor de \(-60^\circ\)) y un \emph{aumento de la amplitud} de las oscilaciones,
+indicando mayor flexibilidad torsional. Por el contrario, \textbf{CA--C--N--CA} sigue confinado en el
+entorno trans (\(\pm 180^\circ\)), aunque con \emph{transiciones más frecuentes} entre las dos ramas
+debido a la periodicidad del ángulo. En conjunto, el incremento térmico amplifica la dinámica del diedro
+\textbf{N--CA--C--N}, mientras que mantiene \textbf{CA--C--N--CA (}\(\omega\)\textbf{)}
+rígido en trans, con cruces periódicos sin pérdida de estabilidad estructural.
+
+\subsection{Mapas de Ramachandran}
+
+\noindent
+Para caracterizar la flexibilidad torsional del péptido, se calcularon los ángulos
+\(\phi\) y \(\psi\) de cada residuo mediante el comando \texttt{gmx rama}. Este análisis
+proporciona directamente un archivo \texttt{.xvg} con los valores de \(\phi/\psi\) por
+frame y permite representar los mapas de Ramachandran individuales para
+cada residuo del tripéptido. Aunque el sistema es pequeño y no presenta
+estructura secundaria definida, el mapa \(\phi/\psi\) ofrece información clara sobre
+las regiones conformacionales accesibles a distintas temperaturas y sobre la
+sensibilidad torsional de cada residuo.
+
+\begin{lstlisting}
+gmx rama -s arn_run_298.tpr -f arn_run_298.trr -o rama_298.xvg -xvg none
+# rama: -s .tpr (referencia) -f .trr (trayectoria) -> -o .xvg (phi/psi)
+# -xvg none: salida limpia para procesar con grep/awk
+# Salida con etiquetas del tipo: ALA-2  phi  psi; ARG-3  phi  psi; ASN-4  phi  psi
+gmx rama -s arn_run_400.tpr -f arn_run_400.trr -o rama_400.xvg -xvg none
+\end{lstlisting}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.32\textwidth]{img/ramachandran_ALA-2_298K.png}
+\includegraphics[width=0.32\textwidth]{img/ramachandran_ARG-3_298K.png}
+\includegraphics[width=0.32\textwidth]{img/ramachandran_ASN-4_298K.png}
+\caption{\textbf{Mapas de Ramachandran a \SI{298}{K}} para los residuos ALA-2, ARG-3 y ASN-4.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.32\textwidth]{img/ramachandran_ALA-2_400K.png}
+\includegraphics[width=0.32\textwidth]{img/ramachandran_ARG-3_400K.png}
+\includegraphics[width=0.32\textwidth]{img/ramachandran_ASN-4_400K.png}
+\caption{\textbf{Mapas de Ramachandran a \SI{400}{K}} para los residuos ALA-2, ARG-3 y ASN-4.}
+\end{figure}
+
+\paragraph*{Comparación de los mapas de Ramachandran a 298 K y 400 K}
+
+La comparación entre los mapas de Ramachandran a \SI{298}{K} y \SI{400}{K} revela
+cambios claramente dependientes del residuo. En \textbf{ALA-2}, la distribución
+\(\phi/\psi\) pasa de un clúster compacto centrado en el cuadrante
+\(\phi<0^\circ,\ \psi>0^\circ\) a \SI{298}{K} a una región igualmente estrecha pero
+desplazada hacia \(\psi<0^\circ\) a \SI{400}{K}. Aunque la nube se alarga y la
+densidad se reparte con mayor amplitud, el residuo sigue ocupando un único mínimo
+conformacional, mostrando solo un aumento moderado de la flexibilidad torsional.
+
+En \textbf{ARG-3}, a \SI{298}{K} la población se concentra de forma muy definida en la
+región \(\phi\approx -120^\circ,\ \psi\approx 130{-}170^\circ\), formando un clúster alto y
+bien delimitado. A \SI{400}{K}, el residuo conserva una única región poblada, pero la nube
+se expande en ambas direcciones, con una dispersión mayor en \(\psi\) y contornos más
+difusos ($\psi\approx -20$--$15^\circ$). Aun así, no se observan cambios de cuenca torsional: el residuo central
+mantiene la misma familia conformacional, únicamente con fluctuaciones más amplias.
+
+Por el contrario, \textbf{ASN-4} muestra la mayor sensibilidad térmica. A \SI{298}{K}, el mapa
+presenta una región esencialmente continua en el cuadrante
+\(\phi<0^\circ,\ \psi<0^\circ\). Sin embargo, a \SI{400}{K} la distribución se fragmenta en
+dos mínimos bien diferenciados: uno alrededor de \(\psi\approx -60^\circ\) y otro cercano a
+\(\psi\approx +10^\circ\), indicando un acceso más frecuente a configuraciones alternativas.
+Este comportamiento bimodal refleja que el extremo C-terminal adquiere mayor
+flexibilidad y explora distintas regiones permisibles del espacio \(\phi/\psi\) al aumentar
+la temperatura.
+
+Los mapas muestran que \textbf{ALA-2} y \textbf{ARG-3} mantienen una conformación
+principal estable a ambas temperaturas, aunque más dispersa a \SI{400}{K}, mientras que
+\textbf{ASN-4} experimenta una transición clara hacia una dinámica multimodal, siendo el
+residuo más sensible al incremento térmico.
+
+% ==================================================
+\subsection{Puentes de hidrógeno}
+
+\noindent\textbf{Nota}. En la ejecución de gmx hbond se seleccionaron como grupos donador y aceptor las opciones correspondientes a 'Protein' (número 1 y otra vez 1).
+
+\begin{lstlisting}[style=bashstyle]
+# Cuenta puentes de hidrógeno dentro del péptido
+# -num: salida del número de H-bonds por frame
+gmx hbond -f arn_run_298.trr -s arn_run_298.tpr -num hbond_298.xvg -xvg none
+
+gmx hbond -f arn_run_400.trr -s arn_run_400.tpr -num hbond_400.xvg -xvg none
+\end{lstlisting}
+
+\subsubsection*{Análisis de los puentes de hidrógeno}
+
+Durante el análisis interactivo, GROMACS identificó \textbf{8 donadores} y \textbf{13 aceptores} en el péptido. 
+Aunque ello implica \textbf{104 combinaciones donador–aceptor} posibles en sentido teórico, 
+el programa sólo considera como \emph{“pares posibles”} aquellos que cumplen los criterios 
+geométricos iniciales (distancia \(\leq 0.35\,\mathrm{nm}\) y accesibilidad espacial en el grid de búsqueda). 
+Por este motivo, GROMACS informa de un máximo de \textbf{52 pares geométricamente evaluables}, 
+número inferior al total combinatorio. Aun así, el número real de enlaces de hidrógeno intramoleculares detectados 
+es muy bajo, como se aprecia inspeccionando los ficheros generados con \texttt{less}.
+
+\paragraph*{Inspección directa mediante \texttt{less}.}
+
+A \textbf{298 K}, el archivo \texttt{hbond\_num\_298.xvg} muestra que la columna de H-bonds internos permanece
+igual a cero en todos los frames:
+
+\begin{verbatim}
+   time     H-bonds   pairs
+     0.000      0        18
+     0.001      0        18
+     0.007      0        19
+     0.015      0        18
+     ...
+     1.995      0        21
+     1.999      0        21
+     2.000      0        21
+\end{verbatim}
+
+A \textbf{400 K}, el archivo \texttt{hbond\_num\_400.xvg} muestra la presencia de contactos transitorios,
+con valores de 1–2 H-bonds en la mayoría de frames:
+
+\begin{verbatim}
+   time     H-bonds   pairs
+     0.000      1        19
+     0.006      1        20
+     0.014      1        20
+     0.017      1        19
+     ...
+     1.982      1        22
+     1.991      0        23
+     1.999      0        22
+     2.000      0        21
+\end{verbatim}
+
+\paragraph*{Resumen cuantitativo.}
+
+Con base en los valores extraídos por GROMACS:
+
+\begin{itemize}
+    \item A \textbf{298 K}, el número medio de enlaces de hidrógeno intramoleculares es \textbf{0.00}. 
+    Ningún frame presenta enlaces internos estables, lo que es esperable en un tripéptido pequeño y
+    completamente expuesto al solvente.
+
+    \item A \textbf{400 K}, el número medio aumenta a \textbf{1.15 H-bonds por frame}. 
+    Estos contactos son \textbf{transitorios} y reflejan configuraciones momentáneas favorecidas por la
+    mayor flexibilidad térmica, sin llegar a formar una red interna estable.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_hbonds_298K.png}
+\caption{Puentes de hidrógeno a 298 K.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_hbonds_400K.png}
+\caption{Puentes de hidrógeno a 400 K.}
+\end{figure}
+
+\paragraph*{Análisis de los enlaces de hidrógeno intramoleculares}
+
+Las figuras anteriores muestran la evolución temporal del número de enlaces de hidrógeno
+\textbf{intramoleculares} del tripéptido ARN calculados con \texttt{gmx hbond -num}, donde la segunda columna
+del archivo \texttt{.xvg} corresponde al número real de puentes de hidrógeno detectados por frame.
+
+A \SI{298}{K}, la señal permanece constante en \textbf{cero} durante toda la trayectoria de \SI{2}{ps}. Esto confirma
+que el péptido no forma enlaces de hidrógeno internos estables en condiciones térmicas moderadas, lo que es
+esperable en un sistema tan corto y completamente expuesto al solvente.
+
+A \SI{400}{K}, aparecen \textbf{contactos transitorios} con valores entre 0 y 2 enlaces por frame, con una media
+de aproximadamente 1.15. Estos eventos corresponden a alineamientos momentáneos entre grupos N–H y
+carbonilos del propio péptido favorecidos por la mayor flexibilidad térmica. No obstante, los contactos carecen
+de persistencia temporal, y en ningún caso se configura una red interna estable.
+
+Los resultados muestran que el tripéptido ARN no mantiene puentes de hidrógeno internos a
+\SI{298}{K}, mientras que a \SI{400}{K} sólo se observan interacciones efímeras inducidas por la mayor agitación
+térmica, sin comprometer la ausencia de estructura secundaria y el carácter altamente flexible del sistema.
+
+% ==================================================
+\subsection{Energía y temperatura}
+
+\noindent\textbf{Nota}. gmx energy requiere elegir las magnitudes por número en el menú interactivo. En este trabajo, según la numeración mostrada por GROMACS, se seleccionaron:
+14 -> Kinetic En. (energía cinética) ; 
+15 -> Total Energy (energía total)
+Para extraer la temperatura, en el menú de gmx energy se seleccionó:
+17 -> Temperature (temperatura del sistema). 
+La extracción se confirmó pulsando Enter tras introducir los números
+
+\begin{lstlisting}[style=bashstyle]
+# Extrae energía cinética, total y otros términos del fichero de energías (.edr)
+# -f: fichero de energías generado en el RUN (registra magnitudes termodinámicas por paso)
+# -s: .tpr con la definición del sistema (grupos, masas, g.d.l.); ayuda a etiquetar correctamente
+# -o: salida en formato XVG (lista de tiempo vs magnitud) para graficar/análisis posterior
+gmx energy -f arn_run_298.edr -s arn_run_298.tpr -o energia_298.xvg
+gmx energy -f arn_run_400.edr -s arn_run_400.tpr -o energia_400.xvg
+
+# Extrae la temperatura media y su serie temporal desde el .edr (tal y como la reporta el termostato)
+# -o temp_XXX.xvg: serie de T(t); la media (y RMSD) aparece en la cabecera/estadísticos del comando
+gmx energy -f arn_run_298.edr -s arn_run_298.tpr -o temp_edr_298.xvg
+gmx energy -f arn_run_400.edr -s arn_run_400.tpr -o temp_edr_400.xvg
+\end{lstlisting}
+
+\subsubsection*{Análisis de la energía cinética, energía total y temperatura}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_energias_298K.png}
+\caption{Energía cinética y energía total a 298 K.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_energias_400K.png}
+\caption{Energía cinética y energía total a 400 K.}
+\end{figure}
+
+\paragraph*{Comparación de los perfiles energéticos a 298 K y 400 K.}
+
+Las Figuras anteriores muestran la evolución temporal de la energía cinética y de
+la energía total durante los 2 ps de producción NVT para ambas temperaturas. A
+\SI{298}{K}, la energía cinética se mantiene estable alrededor de 
+$\sim 9.7\times10^{3}$~kJ/mol, con fluctuaciones pequeñas y regulares.
+La energía total se mantiene prácticamente plana en torno a
+$-2.64\times10^{4}$~kJ/mol, lo que confirma la estabilidad del integrador y del
+termostato en este régimen térmico.
+
+A \SI{400}{K}, la energía cinética aumenta de forma proporcional a la
+temperatura, estabilizándose en torno a $\sim 1.3\times10^{4}$~kJ/mol. La
+amplitud de las fluctuaciones es mayor que a 298~K, coherente con la mayor
+agitación térmica del sistema. La energía total presenta valores menos negativos
+($\sim -1.82\times10^{4}$~kJ/mol), reflejando el incremento de la energía
+interna. A pesar del aumento térmico, ambas señales se mantienen estables, 
+lo que certifica que el termostato \texttt{v-rescale} preserva
+adecuadamente el ensamble NVT en las dos condiciones.
+
+Las gráficas confirman que el incremento de temperatura produce el
+comportamiento esperado según el teorema de equipartición, sin comprometer la
+estabilidad dinámica del sistema.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_temperatura_298K.png}
+\caption{Evolución temporal de la temperatura a \SI{298}{K}}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_temperatura_400K.png}
+\caption{Evolución temporal de la temperatura a \SI{400}{K}}
+\end{figure}
+
+\paragraph*{Comparación de la estabilidad térmica a 298 K y 400 K.}
+
+Las Figuras anteriores muestran la evolución temporal de la temperatura
+instantánea durante los \SI{2}{ps} de producción NVT, permitiendo evaluar 
+la respuesta del termostato \texttt{v-rescale} y la estabilidad térmica
+del sistema. A \SI{298}{K}, la señal oscila de manera acotada entre
+aproximadamente 285 y 310~K, con fluctuaciones típicas de $\pm 5{-}7$~K. El
+trazado presenta pequeñas variaciones por intervalos de tiempo: un régimen
+inicial ligeramente más disperso (0.0–0.3~ps), seguido por una zona más
+estabilizada (0.3–0.75~ps), un periodo de ligera expansión térmica
+(0.75–1.10~ps) y un tramo final donde la temperatura vuelve a concentrarse en
+torno a 295–300~K. En todos los casos, la media se mantiene alineada con el
+valor objetivo, sin deriva apreciable.
+
+A \SI{400}{K}, la amplitud de las fluctuaciones aumenta de forma notable,
+situándose habitualmente en el intervalo 380–420~K, con variaciones típicas de
+$\pm 12{-}15$~K. Este aumento de varianza es coherente con la mayor energía
+cinética disponible y con la dinámica interna más activa del tripéptido. La
+serie temporal muestra regiones con oscilaciones especialmente intensas
+(1–1.40~ps), que reflejan configuraciones más energéticas, y
+tramos donde la señal se estrecha. Sin embargo,
+el valor medio permanece centrado en los \SI{400}{K} durante toda la
+trayectoria.
+
+Ambas gráficas confirman que el termostato \texttt{v-rescale}
+mantiene la temperatura objetivo con alta fidelidad en los dos regímenes, con un
+incremento de la dispersión proporcional a la temperatura según la teoría de
+equipartición. 
+
+\subsubsection*{Resumen cuantitativo de producción (NVT, 2 ps)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Magnitud} & \textbf{298 K (media)} & \textbf{Err.Est.} & \textbf{RMSD} & \textbf{Tot-Drift} \\
+\midrule
+Kinetic Energy (kJ/mol) & 9735.05 & 39  & 155.649 & -148.396 \\
+Total Energy (kJ/mol)   & -26443.6 & 110 & 263.757 & -642.346 \\
+Temperature (K)         & 296.008  & 1.2 & 4.733   & -4.512 \\
+\bottomrule
+\end{tabular}
+\caption{Energía y temperatura en producción NVT a 298 K (2 ps).}
+\end{table}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Magnitud} & \textbf{400 K (media)} & \textbf{Err.Est.} & \textbf{RMSD} & \textbf{Tot-Drift} \\
+\midrule
+Kinetic Energy (kJ/mol) & 13077.4 & 45  & 192.186 & 104.161 \\
+Total Energy (kJ/mol)   & -18174.6 & 75 & 228.932 & 83.218 \\
+Temperature (K)         & 397.636  & 1.4 & 5.844  & 3.167 \\
+\bottomrule
+\end{tabular}
+\caption{Energía y temperatura en producción NVT a 400 K (2 ps).}
+\end{table}
+
+\subsubsection{Validación teórica de la energía cinética (Equipartición)}
+
+Para comprobar que las simulaciones en ensamble NVT son físicamente correctas,
+se comparó la energía cinética media reportada por GROMACS con el valor teórico
+esperado según el teorema de equipartición:
+
+\begin{equation}
+E_k = \frac{3}{2} \, N \, k_B T = \frac{3}{2} N R T,
+\end{equation}
+
+Donde $N$ es el número de átomos del sistema ($N=2638$), $T$ la temperatura media
+obtenida en la simulación y $R = 8.314\times 10^{-3}$ kJ mol$^{-1}$ K$^{-1}$ la
+constante de los gases.
+
+\paragraph{Simulación a 298 K.}
+GROMACS proporcionó una energía cinética media de $E_k^{\mathrm{GMX}} = 9735.05$
+kJ/mol y una temperatura media de $T = 296.008$ K. El valor teórico es:
+
+\begin{equation}
+E_k^{\mathrm{teo}} = \frac{3}{2} \, N R T
+= 2638 \times \frac{3}{2} \times (8.314\times 10^{-3}) \times 296.008
+= 9735.0\ \text{kJ/mol}.
+\end{equation}
+
+La diferencia relativa es menor del $10^{-4}$\%, lo cual demuestra una excelente
+coherencia entre el termostato y el teorema de equipartición.
+
+\paragraph{Simulación a 400 K.}
+GROMACS reportó $E_k^{\mathrm{GMX}} = 13077.4$ kJ/mol y una temperatura media de
+$T = 397.636$ K. El valor teórico correspondiente es:
+
+\begin{equation}
+E_k^{\mathrm{teo}} = \frac{3}{2} \, N R T
+= 2638 \times \frac{3}{2} \times (8.314\times 10^{-3}) \times 397.636
+= 13159.4\ \text{kJ/mol}.
+\end{equation}
+
+La desviación es $\sim 0.6\%$, perfectamente aceptable para una trayectoria corta
+y totalmente compatible con el comportamiento esperado del ensamble NVT.
+
+\paragraph{Conclusión.}
+En ambos casos, la energía cinética simulada concuerda con la predicción teórica.
+
+% ==================================================
+\subsection{Velocidades atómicas}
+
+\noindent\textbf{Átomos seleccionados.}
+Se analizaron cinco átomos contiguos del esqueleto peptídico:
+N(ALA-2)\,[7], CA(ALA-2)\,[9], C(ALA-2)\,[15], N(ARG-3)\,[17] y CA(ARG-3)\,[19].
+
+\noindent\textbf{Extracción con GROMACS.}
+Se generó un fichero de índice con esos cinco átomos y se extrajeron sus
+velocidades (módulo y componentes) a partir de la trayectoria:
+
+\begin{lstlisting}[style=bashstyle]
+cat > cinco_atoms.ndx << 'EOF'
+[ cinco ]
+7 9 15 17 19
+EOF
+# Extrae velocidades atómicas desde la trayectoria
+# -ov genera un archivo con |v| y componentes vx, vy, vz
+# 298 K (solo esos 5 átomos)
+gmx traj -f arn_run_298.trr -s arn_run_298.tpr -n cinco_atoms.ndx -ov vel5_298.xvg
+
+# 400 K (solo esos 5 átomos)
+gmx traj -f arn_run_400.trr -s arn_run_400.tpr -n cinco_atoms.ndx -ov vel5_400.xvg
+\end{lstlisting}
+
+\subsubsection*{Análisis de las velocidades atómicas}
+
+\paragraph*{Salidas y formato de datos.}
+Los comandos anteriores generan los ficheros:
+\texttt{vel5\_298.xvg} y \texttt{vel5\_400.xvg}, en formato \emph{XVG} (GROMACS/Grace).
+Cada archivo contiene:
+(i) un encabezado con metadatos y leyendas (\texttt{@ s\# legend "..."}),
+(ii) columnas numéricas con las series temporales.
+El contenido de las columnas es:
+\[
+\text{col}_0 = t~(\mathrm{ps}),\quad
+\big(\,v_x^{(a_1)},\, v_y^{(a_1)},\, v_z^{(a_1)}\big),\;
+\ldots,\;
+\big(\,v_x^{(a_5)},\, v_y^{(a_5)},\, v_z^{(a_5)}\big),
+\]
+con \(\mathrm{nm\,ps^{-1}}\) como unidades de velocidad. Los identificadores de átomo en las leyendas (\texttt{"atom 7 X"}, \texttt{"atom 9 Y"}, etc.) confirman el orden y permiten recuperar el ID de cada átomo analizado. En el postproceso, el módulo \(|\mathbf{v}|\) de cada átomo se calcula como
+\(|\mathbf{v}|=\sqrt{v_x^2+v_y^2+v_z^2}\) para construir las figuras.
+
+\paragraph*{Nota.}Las velocidades atómicas proporcionan información directa sobre la agitación térmica de los átomos y permiten verificar el efecto del aumento de temperatura sobre la dinámica interna del tripéptido. Se analizaron cinco átomos consecutivos del \emph{backbone}: N(ALA–2) [7], CA(ALA–2) [9], C(ALA–2) [15], N(ARG–3) [17] y CA(ARG–3) [19]. Para cada átomo se extrajeron las componentes $v_x, v_y, v_z$ y se calculó el módulo $|\mathbf{v}|$ (mediante la expresión $|\mathbf{v}|=\sqrt{v_x^2+v_y^2+v_z^2}$) en unidades de \(\mathrm{nm\,ps^{-1}}\).
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.94\textwidth]{img/figura_python_vel_5atomos_298K.png}
+  \caption{\textbf{Velocidades atómicas a \SI{298}{K}}.
+  Evolución temporal del módulo de la velocidad $|\mathbf{v}|$ para los cinco átomos del \emph{backbone}.
+  Estadísticos: 
+  N(ALA–2) [7] $\langle |v| \rangle = \SI{0.654}{nm.ps^{-1}}$, $\sigma = \SI{0.266}{nm.ps^{-1}}$;
+  CA(ALA–2) [9] $\langle |v| \rangle = \SI{0.619}{nm.ps^{-1}}$, $\sigma = \SI{0.254}{nm.ps^{-1}}$;
+  C(ALA–2) [15] $\langle |v| \rangle = \SI{0.616}{nm.ps^{-1}}$, $\sigma = \SI{0.264}{nm.ps^{-1}}$;
+  N(ARG–3) [17] $\langle |v| \rangle = \SI{0.626}{nm.ps^{-1}}$, $\sigma = \SI{0.262}{nm.ps^{-1}}$;
+  CA(ARG–3) [19] $\langle |v| \rangle = \SI{0.681}{nm.ps^{-1}}$, $\sigma = \SI{0.306}{nm.ps^{-1}}$.
+  }
+  \label{fig:vel5-298}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{img/fig_vel_5atomos_298K_panel.png}
+  \caption{\textbf{Panel 5×1 del módulo de la velocidad a \SI{298}{K}}.
+  Cada panel muestra el comportamiento de un átomo específico del \emph{backbone},
+  facilitando la comparación visual de sus fluctuaciones individuales.}
+  \label{fig:vel5-298-panel}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.94\textwidth]{img/figura_python_vel_5atomos_400K.png}
+  \caption{\textbf{Velocidades atómicas a \SI{400}{K}}.
+  Se observa un aumento claro en la amplitud de las fluctuaciones respecto a \SI{298}{K}, coherente con el incremento térmico.
+  Estadísticos:
+  N(ALA–2) [7] $\langle |v| \rangle = \SI{0.996}{nm.ps^{-1}}$, $\sigma = \SI{0.426}{nm.ps^{-1}}$;
+  CA(ALA–2) [9] $\langle |v| \rangle = \SI{0.960}{nm.ps^{-1}}$, $\sigma = \SI{0.391}{nm.ps^{-1}}$;
+  C(ALA–2) [15] $\langle |v| \rangle = \SI{0.735}{nm.ps^{-1}}$, $\sigma = \SI{0.302}{nm.ps^{-1}}$;
+  N(ARG–3) [17] $\langle |v| \rangle = \SI{0.777}{nm.ps^{-1}}$, $\sigma = \SI{0.324}{nm.ps^{-1}}$;
+  CA(ARG–3) [19] $\langle |v| \rangle = \SI{0.734}{nm.ps^{-1}}$, $\sigma = \SI{0.306}{nm.ps^{-1}}$.
+  }
+  \label{fig:vel5-400}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{img/fig_vel_5atomos_400K_panel.png}
+  \caption{\textbf{Panel 5×1 del módulo de la velocidad a \SI{400}{K}}.
+  El aumento de amplitud en todos los átomos refleja la mayor energía cinética media
+  y la dispersión esperable en un régimen térmico elevado.}
+  \label{fig:vel5-400-panel}
+\end{figure}
+
+\paragraph*{Comparación entre 298 K y 400 K.}
+
+Las Figuras~\ref{fig:vel5-298}--\ref{fig:vel5-400-panel} muestran un 
+incremento claro y sistemático de la agitación térmica al pasar de \SI{298}{K} a 
+\SI{400}{K}. En ambos regímenes las señales presentan oscilaciones rápidas y 
+centradas en cero, sin deriva de momento, lo que confirma la correcta actuación 
+del termostato. No obstante, la amplitud de las fluctuaciones y la dispersión 
+estadística aumentan de manera apreciable con la temperatura.
+
+A \SI{298}{K}, los cinco átomos presentan módulos de velocidad relativamente 
+compactos, con valores medios en el intervalo 
+\(0.62{-}0.68~\mathrm{nm\,ps^{-1}}\). El átomo más móvil es CA(ARG–3) [19], con 
+\(\langle|v|\rangle=\SI{0.681}{nm.ps^{-1}}\), mientras que el resto oscila en torno 
+a \(0.62{-}0.65\). Las desviaciones estándar, próximas a 
+\(0.25{-}0.30~\mathrm{nm\,ps^{-1}}\), indican fluctuaciones moderadas y bien 
+contenidas, coherentes con un régimen térmico suave.
+
+A \SI{400}{K}, todos los átomos incrementan su velocidad media y su dispersión. 
+Los valores medios oscilan ahora entre 
+\(0.73{-}1.00~\mathrm{nm\,ps^{-1}}\). El átomo más móvil pasa a ser N(ALA–2) [7], 
+con \(\langle|v|\rangle=\SI{0.996}{nm.ps^{-1}}\), y presenta además la mayor 
+desviación estándar del conjunto (\(\sigma=\SI{0.426}{nm.ps^{-1}}\)), reflejando 
+una agitación térmica más intensa. El resto de átomos sigue la misma tendencia, 
+con incrementos relativos del \(20{-}50\%\) respecto a \SI{298}{K}. Este aumento 
+se aprecia con especial claridad en las figuras de tipo panel, donde las 
+señales muestran transiciones más amplias y picos más frecuentes, sin pérdida 
+de estabilidad numérica ni comportamientos no físicos.
+
+El aumento de temperatura induce un incremento global y homogéneo de las
+velocidades atómicas. A \SI{298}{K}, las diferencias entre átomos son muy
+pequeñas y no aparece un patrón claro, con valores medios muy próximos entre
+sí. En cambio, a \SI{400}{K} sí se observa el comportamiento esperado: los
+átomos más ligeros y expuestos del backbone, especialmente los átomos N,
+se convierten en los más rápidos, mientras que los carbonos centrales
+mantienen valores más amortiguados.
+
+% ==================================================
+\subsection{Distribución de temperatura}
+
+\noindent\textbf{Nota Temperatura.} La temperatura instantánea se extrajo a partir de la
+trayectoria completa (\texttt{.trr}) utilizando el grupo \texttt{System}. La producción
+tiene una duración total de \(2~\mathrm{ps}\) con un intervalo temporal de
+\(1~\mathrm{fs}\), lo que genera exactamente \(2001\) frames de temperatura. Esta
+frecuencia de muestreo fija la anchura estadística esperada de la distribución,
+ya que los valores consecutivos están fuertemente correlacionados en una
+trayectoria tan corta.
+
+\noindent\textbf{Nota menú}. En el menú se seleccionó \texttt{System} (opción 0), ya que la temperatura debe calcularse sobre todos los átomos del sistema.
+
+\begin{lstlisting}[style=bashstyle]
+# Extrae la temperatura instantánea por frame a partir de la trayectoria de 298 K.
+# -f arn_run_298.trr : trayectoria de producción (formato .trr, incluye velocidades)
+# -s arn_run_298.tpr : archivo de configuración/topología con masas y g.d.l. (necesario para T)
+# -ot temp_series_298.xvg : salida con T(t) (temperatura vs tiempo) en formato XVG
+
+gmx traj -f arn_run_298.trr -s arn_run_298.tpr -ot temp_298.xvg
+
+# Lo mismo para 400 K:
+gmx traj -f arn_run_400.trr -s arn_run_400.tpr -ot temp_400.xvg
+\end{lstlisting}
+
+\subsubsection*{Análisis de la distribución de temperatura}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_histograma_298K.png}
+\caption{Distribución estadística de T instantánea a 298 K.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.90\textwidth]{img/figura_python_histograma_400K.png}
+\caption{Distribución estadística de T instantánea a 400 K.}
+\end{figure}
+
+\paragraph*{Análisis de las distribuciones de temperatura}
+
+Las distribuciones de temperatura obtenidas a \SI{298}{K} y \SI{400}{K} presentan un
+comportamiento claramente gaussiano, en línea con el esperado para un ensamble
+NVT controlado con el termostato \texttt{v-rescale}. 
+
+A \SI{298}{K}, la distribución es estrecha y centrada en \(\sim 297\,\mathrm{K}\), lo que
+indica una fluctuación térmica moderada y una correcta estabilización del sistema.
+A \SI{400}{K}, la anchura de la distribución aumenta de forma apreciable, reflejando
+la mayor agitación térmica; aun así, el máximo permanece en \(\sim 396\,\mathrm{K}\),
+confirmando la ausencia de derivas y el mantenimiento estable de la temperatura
+objetivo.
+
+% =============================
+% 6. Conclusiones
+% =============================
+\section{Conclusiones}
+El análisis comparado de las simulaciones a \SI{298}{K} y \SI{400}{K} muestra que el
+aumento de temperatura produce un incremento en la movilidad interna del
+tripéptido ARN. A \SI{400}{K}, el radio de giro presenta fluctuaciones más amplias
+y los diedros del backbone exploran regiones conformacionales más extensas,
+reflejando una mayor flexibilidad torsional. Los puentes de hidrógeno
+intramoleculares que aparecen a esta temperatura son transitorios y de muy baja
+persistencia, sin llegar a configurar una red estable.
+
+Las distancias covalentes y los ángulos internos del esqueleto peptídico se
+mantienen parecidas en ambas condiciones térmicas, lo que
+evidencia la rigidez geométrica del backbone. Los mapas de Ramachandran muestran
+una dispersión mayor a \SI{400}{K}, especialmente en el residuo ASN-4, aunque las
+conformaciones siguen confinadas en regiones permitidas del espacio
+\(\phi/\psi\), sin acceso a estados desfavorables.
+
+La energía cinética media concuerda con los valores previstos por el teorema de
+equipartición en ambos regímenes, validando el funcionamiento del termostato
+\texttt{v-rescale} y la estabilidad del ensamble NVT. La evolución de la energía
+total y de la temperatura instantánea confirma trayectorias sin deriva y una
+integración numérica estable.
+
+En conjunto, el tripéptido ARN conserva su arquitectura global tanto a
+\SI{298}{K} como a \SI{400}{K}, aunque a mayor temperatura accede a un espacio
+conformacional más amplio y flexible. Estos resultados muestran el impacto de la
+temperatura sobre la dinámica interna de pequeños péptidos en disolución.
+\end{document}
+
