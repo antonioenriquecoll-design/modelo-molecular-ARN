@@ -6,6 +6,18 @@ Este repositorio reúne los **scripts, resultados procesados y figuras** generad
 Incluye las simulaciones realizadas con **GROMACS**, el procesamiento y visualización con **Python**, y el análisis detallado desarrollado para el informe final.
 
 ## Contenido del repositorio
+- **Informe principal:**  
+  [`Informe_ModeladoMolecular_AntonioEnriqueCollMeseguer.pdf`](Informe_ModeladoMolecular_AntonioEnriqueCollMeseguer.pdf)
+
+- **Informe extendido (Extended Report, 500 ps a 298 K):**  
+  [`Parte_opcional_AntonioEnriqueCollMeseguer.pdf`](Parte_opcional_AntonioEnriqueCollMeseguer.pdf)
+
+- **Informe principal (fuente .tex):**  
+  [`Informe_ModeladoMolecular_AntonioEnriqueCollMeseguer.tex`](Informe_ModeladoMolecular_AntonioEnriqueCollMeseguer.tex)
+
+- **Extended Report (fuente .tex):**  
+  [`Parte_opcional_AntonioEnriqueCollMeseguer.tex`](Parte_opcional_AntonioEnriqueCollMeseguer.tex)
+
 - **ARN_project/**  
   Resultados de las simulaciones a **298 K** y **400 K** (archivos binarios pesados excluidos).
 
